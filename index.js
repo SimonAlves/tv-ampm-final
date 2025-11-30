@@ -41,7 +41,7 @@ let campanhas = [
     // SLIDE 3: Posto Ipiranga (Amarelo)
     { 
         id: 2, 
-        tipo: 'foto',
+        tipo: 'foto', 
         arquivo: "slide3.jpg", 
         nome: "Abasteça com Desconto",        
         qtd: 10, 
@@ -217,9 +217,7 @@ app.get('/qrcode', (req, res) => { const url = `${req.headers['x-forwarded-proto
 io.on('connection', (socket) => {
     socket.emit('trocar_slide', campanhas[slideAtual]);
     socket.emit('dados_admin', campanhas);
-    
     socket.on('pedir_atualizacao', () => { socket.emit('trocar_slide', campanhas[slideAtual]); });
-    
     socket.on('resgatar_oferta', (id) => {
         let camp = campanhas[id];
         if (camp && camp.qtd > 0) {
@@ -229,36 +227,16 @@ io.on('connection', (socket) => {
             if(slideAtual === id) io.emit('trocar_slide', camp);
             
             const sorte = Math.floor(Math.random() * 100) + 1;
-            let cor1 = camp.corPrincipal;
-            let cor2 = camp.corSecundaria;
-            let nomeFinal = camp.nome;
-            let isGold = false;
+            let cor1 = camp.corPrincipal; let cor2 = camp.corSecundaria; let nomeFinal = camp.nome;
+            if (sorte > 90) { cor1 = '#FFD700'; cor2 = '#DAA520'; nomeFinal = `🌟 ${camp.nome} (PREMIADO)`; }
 
-            if (sorte > 90) { 
-                isGold = true;
-                cor1 = '#FFD700'; cor2 = '#DAA520'; nomeFinal = `🌟 ${camp.nome} (SUPER OFERTA)`;
-            }
-
-            socket.emit('sucesso', { 
-                codigo: gerarCodigo(camp.prefixo), 
-                produto: nomeFinal,
-                corPrincipal: cor1,
-                corSecundaria: cor2,
-                isGold: isGold
-            });
-            
+            socket.emit('sucesso', { codigo: gerarCodigo(camp.prefixo), produto: nomeFinal, corPrincipal: cor1, corSecundaria: cor2 });
             io.emit('dados_admin', campanhas);
         }
     });
-
-    socket.on('admin_update', (d) => { 
-        campanhas[d.id].qtd = parseInt(d.qtd);
-        campanhas[d.id].ativa = d.ativa;
-        io.emit('dados_admin', campanhas); 
-        if(slideAtual === d.id) io.emit('trocar_slide', campanhas[d.id]); 
-    });
+    socket.on('admin_update', (d) => { campanhas[d.id].qtd = parseInt(d.qtd); io.emit('dados_admin', campanhas); if(slideAtual === d.id) io.emit('trocar_slide', campanhas[d.id]); });
 });
 
-// --- AQUI ESTAVA FALTANDO A DEFINIÇÃO DA PORTA ---
+// AQUI ESTÁ A CORREÇÃO (LINHA 349):
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`AMPM rodando na porta ${PORT}`));
