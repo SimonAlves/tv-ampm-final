@@ -10,9 +10,9 @@ const io = socketIo(server);
 app.use(express.static(__dirname));
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO DAS 3 PROMOÇÕES FIXAS ---
+// --- CONFIGURAÇÃO DAS 3 OFERTAS (SÓ IMAGENS) ---
 let campanhas = [
-    // SLIDE 0: COMBUSTÍVEL (OURO - SORTEIO DIFÍCIL)
+    // SLIDE 0: COMBUSTÍVEL (OURO - SORTEIO DIFÍCIL) -> slide1.jpg
     { 
         id: 0, 
         tipo: 'foto', 
@@ -26,7 +26,7 @@ let campanhas = [
         prefixo: 'GOLD',
         ehSorteio: true 
     },
-    // SLIDE 1: DUCHA GRÁTIS (AZUL)
+    // SLIDE 1: DUCHA GRÁTIS (AZUL) -> slide2.jpg
     { 
         id: 1, 
         tipo: 'foto', 
@@ -35,12 +35,12 @@ let campanhas = [
         qtd: 50, 
         totalResgates: 0,
         ativa: true, 
-        corPrincipal: '#0055aa', 
-        corSecundaria: '#0099ff', 
+        corPrincipal: '#0055aa', // Azul Escuro
+        corSecundaria: '#0099ff', // Azul Claro
         prefixo: 'DUCHA',
         ehSorteio: false
     },
-    // SLIDE 2: CAFÉ EXPRESSO (LARANJA)
+    // SLIDE 2: CAFÉ EXPRESSO (LARANJA) -> slide3.jpg
     { 
         id: 2, 
         tipo: 'foto', 
@@ -49,8 +49,8 @@ let campanhas = [
         qtd: 50, 
         totalResgates: 0,
         ativa: true, 
-        corPrincipal: '#F37021', 
-        corSecundaria: '#663300', 
+        corPrincipal: '#F37021', // Laranja AMPM
+        corSecundaria: '#663300', // Marrom
         prefixo: 'CAFE',
         ehSorteio: false
     }
@@ -80,8 +80,7 @@ const htmlTV = `
 <body style="margin:0; background:black; overflow:hidden; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; transition: background 0.5s;">
     <div style="display:flex; height:100vh;">
         <div style="flex:3; background:#ccc; display:flex; align-items:center; justify-content:center; overflow:hidden;" id="bgEsq">
-            <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;">
-            <video id="vidDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;" muted playsinline></video>
+            <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;" onerror="this.style.display='none'">
         </div>
         <div style="flex:1; background:#003399; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid #FFCC00; text-align:center; color:white;" id="bgDir">
             <img src="logo.png" onerror="this.style.display='none'" style="width:160px; background:white; padding:15px; border-radius:15px; margin-bottom:30px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
@@ -91,8 +90,8 @@ const htmlTV = `
             </div>
             <p style="margin-top:10px; font-weight:bold; font-size:1.2rem; color:#FFCC00;" id="txtScan">ESCANEIE PARA GANHAR</p>
             <div id="boxNum" style="margin-top:30px; border-top:2px dashed rgba(255,255,255,0.3); width:80%; padding-top:20px;">
-                <span style="font-size:1.2rem;">RESTAM APENAS:</span><br>
-                <span id="num" style="font-size:6rem; font-weight:900; line-height:1;">--</span>
+                <span style="font-size:1.2rem; font-weight:bold;">RESTAM APENAS:</span><br>
+                <span id="num" style="font-size:6rem; color:#FFCC00; font-weight:900; line-height:1;">--</span>
             </div>
         </div>
     </div>
@@ -100,34 +99,42 @@ const htmlTV = `
     <script>
         const socket = io();
         const imgTag = document.getElementById('imgDisplay');
-        const vidTag = document.getElementById('vidDisplay');
+        
         socket.on('trocar_slide', (d) => { actualizarTela(d); });
+        
         socket.on('atualizar_qtd', (d) => {
             if(document.getElementById('nomeProd').innerText === d.nome) {
                 document.getElementById('num').innerText = d.qtd;
             }
         });
+
         function actualizarTela(d) {
             document.getElementById('nomeProd').innerText = d.nome;
             document.getElementById('num').innerText = d.qtd;
+            
+            // Cores dinâmicas
             document.getElementById('bgDir').style.background = d.corPrincipal;
             document.getElementById('bgEsq').style.background = d.corSecundaria;
-            const corTexto = (d.corPrincipal === '#FFD700') ? '#003399' : 'white';
-            document.getElementById('bgDir').style.color = corTexto;
-            document.getElementById('num').style.color = (d.corPrincipal === '#FFD700') ? '#003399' : '#FFCC00';
+            
+            // Ajuste de contraste para o amarelo
+            const corTexto = (d.corPrincipal === '#FFD700' || d.corPrincipal === '#FFCC00') ? '#003399' : '#FFCC00';
+            const corFundoTexto = (d.corPrincipal === '#FFD700' || d.corPrincipal === '#FFCC00') ? '#003399' : 'white';
+            
+            document.getElementById('num').style.color = corTexto;
+            document.getElementById('txtScan').style.color = corTexto;
+            document.getElementById('bgDir').style.color = corFundoTexto;
 
+            // MOSTRA A FOTO
+            imgTag.style.display = 'block';
+            imgTag.src = d.arquivo;
+            
+            // Lógica do texto do Sorteio
             if(d.ehSorteio) {
                 document.getElementById('boxNum').style.display = 'none';
                 document.getElementById('txtScan').innerText = "TENTE A SORTE!";
             } else {
                 document.getElementById('boxNum').style.display = 'block';
                 document.getElementById('txtScan').innerText = "GARANTA O SEU";
-            }
-
-            if (d.tipo === 'video') {
-                imgTag.style.display = 'none'; vidTag.style.display = 'block'; vidTag.src = d.arquivo; vidTag.play().catch(e => console.log(e));
-            } else {
-                vidTag.pause(); vidTag.style.display = 'none'; imgTag.style.display = 'block'; imgTag.src = d.arquivo;
             }
         }
     </script>
@@ -148,7 +155,7 @@ const htmlMobile = `
     .ticket-paper { background: #fff; padding: 0; margin-top: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); position: relative; overflow: hidden; border-top: 10px solid #F37021; }
     .ticket-body { padding: 25px; text-align: center; }
     .ticket-header { font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; }
-    .ticket-offer { font-size: 24px; font-weight: 900; color: #333; margin: 5px 0; line-height:1.2; }
+    .ticket-offer { font-size: 24px; font-weight: 900; color: #333; margin: 5px 0; line-height: 1.2; }
     .codigo-box { background: #f8f9fa; border: 2px dashed #ccc; padding: 15px; margin: 20px 0; border-radius: 4px; }
     .codigo-texto { font-size: 32px; font-weight: bold; letter-spacing: 2px; margin:0; font-family: 'Courier New', monospace; }
     .serrilhado { height: 10px; width: 100%; background-image: radial-gradient(circle, #f0f2f5 50%, transparent 50%); background-size: 20px 20px; background-position: bottom; margin-top: -10px; }
@@ -159,7 +166,6 @@ const htmlMobile = `
     <div id="telaPegar">
         <h3 style="color:#555; text-transform:uppercase; font-size:14px; letter-spacing:1px;">Oferta Disponível:</h3>
         <img id="fotoM" src="" class="midia-prod" style="display:none;">
-        <video id="vidM" src="" class="midia-prod" style="display:none;" muted playsinline autoplay loop></video>
         <h2 id="nomeM" style="color:#003399; margin:10px 0; font-weight:800;">...</h2>
         <div style="background:white; padding:15px; border-radius:8px; display:inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
             <span style="color:#666; font-size:12px;">ESTOQUE</span><br><strong id="qtdM" style="font-size:24px; color:#333;">--</strong>
@@ -188,7 +194,7 @@ const htmlMobile = `
         const socket = io();
         let ofertaAtual = null;
         
-        // --- TRAVA DE SEGURANÇA (1 POR DIA) ---
+        // TRAVA DE SEGURANÇA
         const hoje = new Date().toLocaleDateString('pt-BR');
         const salvo = localStorage.getItem('ampm_cupom');
         const dataSalva = localStorage.getItem('ampm_data');
@@ -197,12 +203,13 @@ const htmlMobile = `
         socket.on('trocar_slide', (d) => {
             if (document.getElementById('telaVoucher').style.display === 'none') {
                 ofertaAtual = d;
-                const imgTag = document.getElementById('fotoM'); const vidTag = document.getElementById('vidM');
-                if (d.tipo === 'video') { imgTag.style.display = 'none'; vidTag.style.display = 'block'; vidTag.src = d.arquivo; } 
-                else { vidTag.style.display = 'none'; imgTag.style.display = 'block'; imgTag.src = d.arquivo; }
+                const imgTag = document.getElementById('fotoM');
+                imgTag.style.display = 'block'; 
+                imgTag.src = d.arquivo;
                 document.getElementById('nomeM').innerText = d.nome;
                 document.getElementById('qtdM').innerText = d.qtd;
                 document.getElementById('btnResgatar').style.background = d.corPrincipal;
+                
                 if(d.ehSorteio) {
                      document.getElementById('btnResgatar').style.color = '#003399';
                      document.getElementById('btnResgatar').innerText = "TENTAR A SORTE (5%)";
@@ -230,6 +237,10 @@ const htmlMobile = `
             document.getElementById('ticketContainer').style.borderTopColor = dados.corPrincipal;
             document.getElementById('codGerado').style.color = dados.corPrincipal;
             document.getElementById('codBox').style.borderColor = dados.corPrincipal;
+            if(dados.isGold) {
+                document.body.style.backgroundColor = "#FFD700";
+                document.getElementById('voucherNome').innerHTML = "🌟 " + dados.produto + " 🌟";
+            }
         }
     </script>
 </body>
@@ -263,27 +274,23 @@ io.on('connection', (socket) => {
             io.emit('atualizar_qtd', camp);
             if(slideAtual === id) io.emit('trocar_slide', camp);
             
-            let cor1 = camp.corPrincipal; let cor2 = camp.corSecundaria; let nomeFinal = camp.nome; let isGold = false; let prefixo = camp.prefixo;
+            const sorte = Math.floor(Math.random() * 100) + 1;
+            let cor1 = camp.corPrincipal; let cor2 = camp.corSecundaria; let nomeFinal = camp.nome;
+            let isGold = false;
 
-            if (camp.ehSorteio) {
-                const sorte = Math.floor(Math.random() * 100) + 1;
-                if (sorte > 95) { 
-                    isGold = true;
-                    nomeFinal = "PARABÉNS! 50% DE DESCONTO";
-                } else {
-                    cor1 = '#cccccc'; cor2 = '#333333';
-                    nomeFinal = "Ganhou: 2% OFF (Consolação)";
-                    prefixo = "DESC";
-                }
+            if (sorte > 90) { 
+                isGold = true;
+                cor1 = '#FFD700'; cor2 = '#DAA520'; nomeFinal = `🌟 ${camp.nome} (PREMIADO)`;
             }
 
             socket.emit('sucesso', { 
-                codigo: gerarCodigo(prefixo), 
+                codigo: gerarCodigo(camp.prefixo), 
                 produto: nomeFinal,
                 corPrincipal: cor1,
                 corSecundaria: cor2,
                 isGold: isGold
             });
+            
             io.emit('dados_admin', campanhas);
         }
     });
