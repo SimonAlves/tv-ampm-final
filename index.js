@@ -10,9 +10,9 @@ const io = socketIo(server);
 app.use(express.static(__dirname));
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO DAS 3 OFERTAS (SÓ IMAGENS) ---
+// --- CONFIGURAÇÃO ---
 let campanhas = [
-    // SLIDE 0: COMBUSTÍVEL (OURO - SORTEIO DIFÍCIL) -> slide1.jpg
+    // SLIDE 0: COMBUSTÍVEL (OURO - SORTEIO)
     { 
         id: 0, 
         tipo: 'foto', 
@@ -26,7 +26,7 @@ let campanhas = [
         prefixo: 'GOLD',
         ehSorteio: true 
     },
-    // SLIDE 1: DUCHA GRÁTIS (AZUL) -> slide2.jpg
+    // SLIDE 1: DUCHA GRÁTIS (AZUL)
     { 
         id: 1, 
         tipo: 'foto', 
@@ -35,12 +35,12 @@ let campanhas = [
         qtd: 50, 
         totalResgates: 0,
         ativa: true, 
-        corPrincipal: '#0055aa', // Azul Escuro
-        corSecundaria: '#0099ff', // Azul Claro
+        corPrincipal: '#0055aa', 
+        corSecundaria: '#0099ff', 
         prefixo: 'DUCHA',
         ehSorteio: false
     },
-    // SLIDE 2: CAFÉ EXPRESSO (LARANJA) -> slide3.jpg
+    // SLIDE 2: CAFÉ EXPRESSO (LARANJA)
     { 
         id: 2, 
         tipo: 'foto', 
@@ -49,8 +49,8 @@ let campanhas = [
         qtd: 50, 
         totalResgates: 0,
         ativa: true, 
-        corPrincipal: '#F37021', // Laranja AMPM
-        corSecundaria: '#663300', // Marrom
+        corPrincipal: '#F37021', 
+        corSecundaria: '#663300', 
         prefixo: 'CAFE',
         ehSorteio: false
     }
@@ -58,7 +58,6 @@ let campanhas = [
 
 let slideAtual = 0;
 
-// --- ROTAÇÃO AUTOMÁTICA (15 SEGUNDOS) ---
 setInterval(() => {
     slideAtual++;
     if (slideAtual >= campanhas.length) slideAtual = 0;
@@ -67,74 +66,83 @@ setInterval(() => {
 
 function gerarCodigo(prefixo) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let result = '';
-    for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-    return `${prefixo}-${result}`;
+    let res = '';
+    for (let i=0; i<4; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+    return `${prefixo}-${res}`;
 }
 
-// --- HTML DA TV ---
+// --- HTML DA TV (COM RODAPÉ DE PATROCÍNIO) ---
 const htmlTV = `
 <!DOCTYPE html>
 <html>
 <head><title>TV AMPM</title></head>
-<body style="margin:0; background:black; overflow:hidden; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; transition: background 0.5s;">
-    <div style="display:flex; height:100vh;">
+<body style="margin:0; background:black; overflow:hidden; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display:flex; flex-direction:column; height:100vh;">
+    
+    <div style="display:flex; flex:1; width:100%;">
         <div style="flex:3; background:#ccc; display:flex; align-items:center; justify-content:center; overflow:hidden;" id="bgEsq">
-            <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;" onerror="this.style.display='none'">
+            <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;">
+            <video id="vidDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;" muted playsinline></video>
         </div>
+        
         <div style="flex:1; background:#003399; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid #FFCC00; text-align:center; color:white;" id="bgDir">
-            <img src="logo.png" onerror="this.style.display='none'" style="width:160px; background:white; padding:15px; border-radius:15px; margin-bottom:30px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
-            <h1 id="nomeProd" style="font-size:2.2rem; padding:0 10px; line-height:1.1; text-transform:uppercase; font-weight:800; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">...</h1>
+            <img src="logo.png" onerror="this.style.display='none'" style="width:140px; background:white; padding:10px; border-radius:15px; margin-bottom:20px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+            <h1 id="nomeProd" style="font-size:2rem; padding:0 10px; line-height:1.1; text-transform:uppercase; font-weight:800; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">...</h1>
             <div style="background:white; padding:10px; border-radius:10px; margin-top:20px;">
-                <img id="qr" src="qrcode.png" style="width:200px; display:block;" onerror="this.onerror=null; fetch('/qrcode').then(r=>r.text()).then(u=>this.src=u);">
+                <img id="qr" src="qrcode.png" style="width:180px; display:block;" onerror="this.onerror=null; fetch('/qrcode').then(r=>r.text()).then(u=>this.src=u);">
             </div>
-            <p style="margin-top:10px; font-weight:bold; font-size:1.2rem; color:#FFCC00;" id="txtScan">ESCANEIE PARA GANHAR</p>
-            <div id="boxNum" style="margin-top:30px; border-top:2px dashed rgba(255,255,255,0.3); width:80%; padding-top:20px;">
-                <span style="font-size:1.2rem; font-weight:bold;">RESTAM APENAS:</span><br>
-                <span id="num" style="font-size:6rem; color:#FFCC00; font-weight:900; line-height:1;">--</span>
+            <p style="margin-top:10px; font-weight:bold; font-size:1.1rem;" id="txtScan">ESCANEIE AGORA</p>
+            <div id="boxNum" style="margin-top:20px; border-top:2px dashed rgba(255,255,255,0.3); width:80%; padding-top:10px;">
+                <span style="font-size:1rem; font-weight:bold;">RESTAM APENAS:</span><br>
+                <span id="num" style="font-size:5rem; color:#FFCC00; font-weight:900; line-height:1;">--</span>
             </div>
         </div>
     </div>
+
+    <div style="height:10vh; background:#111; border-top: 4px solid #F37021; display:flex; align-items:center; justify-content:space-around; color:#888;">
+        <span style="font-weight:bold; letter-spacing:1px;">OFERECIMENTO:</span>
+        
+        <h2 style="margin:0; color:white;">Ipiranga</h2>
+        <h2 style="margin:0; color:#FFCC00;">Abastece-aí</h2>
+        <h2 style="margin:0; color:#0099ff;">Jet Oil</h2>
+        <h2 style="margin:0; color:#F37021;">AMPM</h2>
+        
+        </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         const imgTag = document.getElementById('imgDisplay');
-        
+        const vidTag = document.getElementById('vidDisplay');
         socket.on('trocar_slide', (d) => { actualizarTela(d); });
-        
         socket.on('atualizar_qtd', (d) => {
             if(document.getElementById('nomeProd').innerText === d.nome) {
                 document.getElementById('num').innerText = d.qtd;
             }
         });
-
         function actualizarTela(d) {
             document.getElementById('nomeProd').innerText = d.nome;
             document.getElementById('num').innerText = d.qtd;
             
-            // Cores dinâmicas
             document.getElementById('bgDir').style.background = d.corPrincipal;
             document.getElementById('bgEsq').style.background = d.corSecundaria;
             
-            // Ajuste de contraste para o amarelo
-            const corTexto = (d.corPrincipal === '#FFD700' || d.corPrincipal === '#FFCC00') ? '#003399' : '#FFCC00';
-            const corFundoTexto = (d.corPrincipal === '#FFD700' || d.corPrincipal === '#FFCC00') ? '#003399' : 'white';
-            
-            document.getElementById('num').style.color = corTexto;
-            document.getElementById('txtScan').style.color = corTexto;
-            document.getElementById('bgDir').style.color = corFundoTexto;
+            const corTexto = (d.corPrincipal === '#FFD700') ? '#003399' : 'white';
+            document.getElementById('bgDir').style.color = corTexto;
+            document.getElementById('num').style.color = (d.corPrincipal === '#FFD700') ? '#003399' : '#FFCC00';
+            document.getElementById('txtScan').style.color = (d.corPrincipal === '#FFD700') ? '#003399' : '#FFCC00';
 
-            // MOSTRA A FOTO
-            imgTag.style.display = 'block';
-            imgTag.src = d.arquivo;
-            
-            // Lógica do texto do Sorteio
             if(d.ehSorteio) {
                 document.getElementById('boxNum').style.display = 'none';
                 document.getElementById('txtScan').innerText = "TENTE A SORTE!";
             } else {
                 document.getElementById('boxNum').style.display = 'block';
                 document.getElementById('txtScan').innerText = "GARANTA O SEU";
+            }
+
+            if (d.tipo === 'video') {
+                imgTag.style.display = 'none'; vidTag.style.display = 'block'; vidTag.src = d.arquivo; vidTag.play().catch(e => console.log(e));
+            } else {
+                vidTag.pause(); vidTag.style.display = 'none'; imgTag.style.display = 'block'; imgTag.src = d.arquivo;
             }
         }
     </script>
@@ -155,7 +163,7 @@ const htmlMobile = `
     .ticket-paper { background: #fff; padding: 0; margin-top: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); position: relative; overflow: hidden; border-top: 10px solid #F37021; }
     .ticket-body { padding: 25px; text-align: center; }
     .ticket-header { font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; }
-    .ticket-offer { font-size: 24px; font-weight: 900; color: #333; margin: 5px 0; line-height: 1.2; }
+    .ticket-offer { font-size: 24px; font-weight: 900; color: #333; margin: 5px 0; line-height:1.2; }
     .codigo-box { background: #f8f9fa; border: 2px dashed #ccc; padding: 15px; margin: 20px 0; border-radius: 4px; }
     .codigo-texto { font-size: 32px; font-weight: bold; letter-spacing: 2px; margin:0; font-family: 'Courier New', monospace; }
     .serrilhado { height: 10px; width: 100%; background-image: radial-gradient(circle, #f0f2f5 50%, transparent 50%); background-size: 20px 20px; background-position: bottom; margin-top: -10px; }
@@ -166,6 +174,7 @@ const htmlMobile = `
     <div id="telaPegar">
         <h3 style="color:#555; text-transform:uppercase; font-size:14px; letter-spacing:1px;">Oferta Disponível:</h3>
         <img id="fotoM" src="" class="midia-prod" style="display:none;">
+        <video id="vidM" src="" class="midia-prod" style="display:none;" muted playsinline autoplay loop></video>
         <h2 id="nomeM" style="color:#003399; margin:10px 0; font-weight:800;">...</h2>
         <div style="background:white; padding:15px; border-radius:8px; display:inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
             <span style="color:#666; font-size:12px;">ESTOQUE</span><br><strong id="qtdM" style="font-size:24px; color:#333;">--</strong>
@@ -194,7 +203,6 @@ const htmlMobile = `
         const socket = io();
         let ofertaAtual = null;
         
-        // TRAVA DE SEGURANÇA
         const hoje = new Date().toLocaleDateString('pt-BR');
         const salvo = localStorage.getItem('ampm_cupom');
         const dataSalva = localStorage.getItem('ampm_data');
@@ -203,13 +211,12 @@ const htmlMobile = `
         socket.on('trocar_slide', (d) => {
             if (document.getElementById('telaVoucher').style.display === 'none') {
                 ofertaAtual = d;
-                const imgTag = document.getElementById('fotoM');
-                imgTag.style.display = 'block'; 
-                imgTag.src = d.arquivo;
+                const imgTag = document.getElementById('fotoM'); const vidTag = document.getElementById('vidM');
+                if (d.tipo === 'video') { imgTag.style.display = 'none'; vidTag.style.display = 'block'; vidTag.src = d.arquivo; } 
+                else { vidTag.style.display = 'none'; imgTag.style.display = 'block'; imgTag.src = d.arquivo; }
                 document.getElementById('nomeM').innerText = d.nome;
                 document.getElementById('qtdM').innerText = d.qtd;
                 document.getElementById('btnResgatar').style.background = d.corPrincipal;
-                
                 if(d.ehSorteio) {
                      document.getElementById('btnResgatar').style.color = '#003399';
                      document.getElementById('btnResgatar').innerText = "TENTAR A SORTE (5%)";
