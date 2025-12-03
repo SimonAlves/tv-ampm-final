@@ -16,7 +16,7 @@ let campanhas = [
     { 
         id: 0, 
         tipo: 'foto', 
-        arquivo: "slide1.jpg", 
+        arquivo: "slide1.png", 
         nome: "Sorteio 50% OFF", 
         qtd: 5, // Estoque baixo para o prêmio principal
         totalResgates: 0,
@@ -30,7 +30,7 @@ let campanhas = [
     { 
         id: 1, 
         tipo: 'foto', 
-        arquivo: "slide2.jpg", 
+        arquivo: "slide2.png", 
         nome: "Ducha Grátis",   
         qtd: 50, 
         totalResgates: 0,
@@ -44,7 +44,7 @@ let campanhas = [
     { 
         id: 2, 
         tipo: 'foto', 
-        arquivo: "slide3.jpg", 
+        arquivo: "slide3.png", 
         nome: "Café + Salgado", // Texto atualizado        
         qtd: 50, 
         totalResgates: 0,
@@ -323,3 +323,4 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`AMPM rodando na porta ${PORT}`));
+
