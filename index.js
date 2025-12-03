@@ -7,58 +7,59 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
+// Configurações básicas
 app.use(express.static(__dirname));
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO FINAL DAS 3 CAMPANHAS ---
+// --- CONFIGURAÇÃO DAS 3 PROMOÇÕES ---
 let campanhas = [
-    // SLIDE 1: COMBUSTÍVEL (OURO - SORTEIO DIFÍCIL 5%)
+    // 1. COMBUSTÍVEL (Sorteio - Dourado)
     { 
         id: 0, 
         tipo: 'foto', 
-        arquivo: "slide1.png", 
-        nome: "Sorteio 50% OFF", 
-        qtd: 5, // Estoque baixo para o prêmio principal
-        totalResgates: 0,
+        arquivo: "slide1.jpg", // Tenta achar a foto
+        nome: "Combustível 50% OFF", 
+        qtd: 5, 
         ativa: true, 
         corPrincipal: '#FFD700', // Dourado
         corSecundaria: '#003399', // Azul
         prefixo: 'GOLD',
-        ehSorteio: true 
+        ehSorteio: true, // Ativa modo sorteio
+        totalResgates: 0 
     },
-    // SLIDE 2: DUCHA GRÁTIS (AZUL)
+    // 2. DUCHA GRÁTIS (Azul)
     { 
         id: 1, 
         tipo: 'foto', 
-        arquivo: "slide2.png", 
+        arquivo: "slide2.jpg", 
         nome: "Ducha Grátis",   
         qtd: 50, 
-        totalResgates: 0,
         ativa: true, 
         corPrincipal: '#0055aa', // Azul Escuro
         corSecundaria: '#0099ff', // Azul Claro
         prefixo: 'DUCHA',
-        ehSorteio: false
+        ehSorteio: false,
+        totalResgates: 0
     },
-    // SLIDE 3: CAFÉ + SALGADO (LARANJA)
+    // 3. CAFÉ + SALGADO (Laranja)
     { 
         id: 2, 
         tipo: 'foto', 
-        arquivo: "slide3.png", 
-        nome: "Café + Salgado", // Texto atualizado        
+        arquivo: "slide3.jpg", 
+        nome: "Café + Salgado",        
         qtd: 50, 
-        totalResgates: 0,
         ativa: true, 
-        corPrincipal: '#F37021', // Laranja AMPM
+        corPrincipal: '#F37021', // Laranja
         corSecundaria: '#663300', // Marrom
         prefixo: 'CAFE',
-        ehSorteio: false
+        ehSorteio: false,
+        totalResgates: 0
     }
 ];
 
 let slideAtual = 0;
 
-// --- ROTAÇÃO AUTOMÁTICA (15 SEGUNDOS) ---
+// Roda os slides a cada 15 segundos
 setInterval(() => {
     slideAtual++;
     if (slideAtual >= campanhas.length) slideAtual = 0;
@@ -67,78 +68,83 @@ setInterval(() => {
 
 function gerarCodigo(prefixo) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let result = '';
-    for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-    return `${prefixo}-${result}`;
+    let res = '';
+    for (let i=0; i<4; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+    return `${prefixo}-${res}`;
 }
 
-// --- HTML DA TV (COM RODAPÉ DE PATROCÍNIO) ---
+// --- TELA DA TV (COM PROTEÇÃO CONTRA TELA PRETA) ---
 const htmlTV = `
 <!DOCTYPE html>
 <html>
 <head><title>TV AMPM</title></head>
-<body style="margin:0; background:black; overflow:hidden; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display:flex; flex-direction:column; height:100vh;">
-    
-    <div style="display:flex; flex:1; width:100%; transition: background 0.5s;">
-        <div style="flex:3; background:#ccc; display:flex; align-items:center; justify-content:center; overflow:hidden;" id="bgEsq">
-            <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;">
-        </div>
+<body style="margin:0; background:black; overflow:hidden; font-family:Arial; transition: background 0.5s;">
+    <div style="display:flex; height:100vh;">
         
-        <div style="flex:1; background:#003399; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid #FFCC00; text-align:center; color:white;" id="bgDir">
-            <img src="logo.png" onerror="this.style.display='none'" style="width:150px; background:white; padding:15px; border-radius:15px; margin-bottom:20px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+        <div style="flex:3; background:#333; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;" id="bgEsq">
             
-            <h1 id="nomeProd" style="font-size:2.2rem; padding:0 10px; line-height:1.1; text-transform:uppercase; font-weight:800; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">...</h1>
+            <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; z-index:2; position:relative;" 
+                 onerror="this.style.display='none'; document.getElementById('textoFalha').style.display='block'">
+            
+            <div id="textoFalha" style="display:none; text-align:center; color:white; z-index:1;">
+                <h1 id="tituloFalha" style="font-size:4rem; text-transform:uppercase;">OFERTA</h1>
+                <p>Aproveite agora!</p>
+            </div>
+            
+        </div>
+
+        <div style="flex:1; background:#003399; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid #FFCC00; text-align:center; color:white;" id="bgDir">
+            <h1 id="nomeProd" style="font-size:2.5rem; padding:0 10px; font-weight:800;">...</h1>
             
             <div style="background:white; padding:10px; border-radius:10px; margin-top:20px;">
-                <img id="qr" src="qrcode.png" style="width:200px; display:block;" onerror="this.onerror=null; fetch('/qrcode').then(r=>r.text()).then(u=>this.src=u);">
+                <img id="qr" src="" style="width:200px; display:block;">
             </div>
             
-            <p style="margin-top:10px; font-weight:bold; font-size:1.2rem; color:#FFCC00;" id="txtScan">ESCANEIE PARA GANHAR</p>
+            <p style="margin-top:10px; font-weight:bold; font-size:1.5rem; color:#FFCC00;" id="txtScan">ESCANEIE</p>
             
-            <div id="boxNum" style="margin-top:20px; border-top:2px dashed rgba(255,255,255,0.3); width:80%; padding-top:20px;">
-                <span style="font-size:1rem;">RESTAM APENAS:</span><br>
-                <span id="num" style="font-size:5rem; color:#FFCC00; font-weight:900; line-height:1;">--</span>
+            <div id="boxNum" style="margin-top:30px; border-top:2px dashed rgba(255,255,255,0.3); width:80%; padding-top:20px;">
+                <span style="font-size:1.2rem;">RESTAM:</span><br>
+                <span id="num" style="font-size:6rem; font-weight:900;">--</span>
             </div>
         </div>
     </div>
-
-    <div style="height:10vh; background:#111; border-top: 4px solid #F37021; display:flex; align-items:center; justify-content:space-around; color:#888; padding: 0 20px;">
-        <span style="font-weight:bold; letter-spacing:1px; font-size: 1rem;">PARCEIROS:</span>
-        <h2 style="margin:0; color:white; font-style:italic;">Ipiranga</h2>
-        <h2 style="margin:0; color:#FFCC00;">Abastece-aí</h2>
-        <h2 style="margin:0; color:#0099ff;">Jet Oil</h2>
-        <h2 style="margin:0; color:#F37021;">AMPM</h2>
-    </div>
-
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        const imgTag = document.getElementById('imgDisplay');
         
-        socket.on('trocar_slide', (d) => { actualizarTela(d); });
-        
+        // Gera QR Code sozinho ao abrir
+        fetch('/qrcode').then(r=>r.text()).then(u=> document.getElementById('qr').src = u);
+
+        socket.on('trocar_slide', (d) => { update(d); });
         socket.on('atualizar_qtd', (d) => {
             if(document.getElementById('nomeProd').innerText === d.nome) {
                 document.getElementById('num').innerText = d.qtd;
             }
         });
 
-        function actualizarTela(d) {
+        function update(d) {
+            // Atualiza textos
             document.getElementById('nomeProd').innerText = d.nome;
+            document.getElementById('tituloFalha').innerText = d.nome; // Backup
             document.getElementById('num').innerText = d.qtd;
+            
+            // Atualiza cores
             document.getElementById('bgDir').style.background = d.corPrincipal;
             document.getElementById('bgEsq').style.background = d.corSecundaria;
             
-            const corTexto = (d.corPrincipal === '#FFD700' || d.corPrincipal === '#FFCC00') ? '#003399' : 'white';
-            const corDestaque = (d.corPrincipal === '#FFD700') ? '#003399' : '#FFCC00';
-            
+            // Ajuste de cor do texto (para não sumir no amarelo)
+            const corTexto = (d.corPrincipal === '#FFD700') ? '#003399' : 'white';
             document.getElementById('bgDir').style.color = corTexto;
-            document.getElementById('num').style.color = corDestaque;
-            document.getElementById('txtScan').style.color = corDestaque;
+            document.getElementById('num').style.color = (d.corPrincipal === '#FFD700') ? '#003399' : '#FFCC00';
+            document.getElementById('txtScan').style.color = (d.corPrincipal === '#FFD700') ? '#003399' : '#FFCC00';
 
-            imgTag.style.display = 'block';
-            imgTag.src = d.arquivo;
-            
+            // Tenta mostrar imagem
+            const img = document.getElementById('imgDisplay');
+            img.style.display = 'block';
+            document.getElementById('textoFalha').style.display = 'none';
+            img.src = d.arquivo;
+
+            // Esconde estoque se for sorteio
             if(d.ehSorteio) {
                 document.getElementById('boxNum').style.display = 'none';
                 document.getElementById('txtScan').innerText = "TENTE A SORTE!";
@@ -152,94 +158,82 @@ const htmlTV = `
 </html>
 `;
 
-// --- HTML MOBILE (COM VOUCHER E TRAVA 1 POR DIA) ---
+// --- HTML MOBILE ---
 const htmlMobile = `
 <!DOCTYPE html>
 <html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align:center; padding:20px; background:#f0f2f5; margin:0; transition: background 0.3s; }
-    .btn-pegar { width:100%; padding:20px; color:white; border:none; border-radius:10px; font-size:20px; margin-top:20px; font-weight:bold; text-transform:uppercase; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: transform 0.2s; }
-    .btn-pegar:active { transform: scale(0.98); }
-    .img-prod { width:100%; max-width:300px; border-radius:10px; margin-bottom:15px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .ticket-paper { background: #fff; padding: 0; margin-top: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); position: relative; overflow: hidden; border-top: 10px solid #F37021; }
-    .ticket-body { padding: 25px; text-align: center; }
-    .ticket-header { font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; }
-    .ticket-offer { font-size: 24px; font-weight: 900; color: #333; margin: 5px 0; line-height:1.2; }
-    .codigo-box { background: #f8f9fa; border: 2px dashed #ccc; padding: 15px; margin: 20px 0; border-radius: 4px; }
-    .codigo-texto { font-size: 32px; font-weight: bold; letter-spacing: 2px; margin:0; font-family: 'Courier New', monospace; }
-    .serrilhado { height: 10px; width: 100%; background-image: radial-gradient(circle, #f0f2f5 50%, transparent 50%); background-size: 20px 20px; background-position: bottom; margin-top: -10px; }
+    body { font-family: Arial, sans-serif; text-align:center; padding:20px; background:#f0f2f5; margin:0; transition: background 0.3s; }
+    .btn-pegar { width:100%; padding:20px; color:white; border:none; border-radius:10px; font-size:20px; margin-top:20px; font-weight:bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+    .ticket-paper { background: #fff; padding: 20px; margin-top: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); border-top: 10px solid #F37021; border-radius: 10px; }
+    .codigo-texto { font-size: 32px; font-weight: bold; letter-spacing: 2px; font-family: monospace; color:#333; border: 2px dashed #ccc; padding: 10px; margin: 10px 0; background: #f9f9f9; }
     .no-print { display: block; }
-    @media print { .no-print { display:none; } body { background:white; padding:0; } .ticket-paper { box-shadow:none; border:1px solid #ccc; } }
+    @media print { .no-print { display:none; } body { background:white; } .ticket-paper { box-shadow:none; border:1px solid #ccc; } }
 </style>
 <body>
     <div id="telaPegar">
-        <h3 style="color:#555; text-transform:uppercase; font-size:14px; letter-spacing:1px;">Oferta Disponível:</h3>
-        <img id="fotoM" src="" class="midia-prod" style="display:none;">
-        <h2 id="nomeM" style="color:#003399; margin:10px 0; font-weight:800;">...</h2>
-        <div style="background:white; padding:15px; border-radius:8px; display:inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-            <span style="color:#666; font-size:12px;">ESTOQUE</span><br><strong id="qtdM" style="font-size:24px; color:#333;">--</strong>
-        </div>
-        <button onclick="resgatar()" id="btnResgatar" class="btn-pegar">RESGATAR CUPOM</button>
+        <h3 style="color:#555;">OFERTA ATUAL:</h3>
+        <h1 id="nomeM" style="color:#003399; font-size: 30px;">...</h1>
+        <div style="background:white; padding:10px; border-radius:5px; display:inline-block; margin-bottom: 20px;">
+            <span style="color:#666;">ESTOQUE: </span><strong id="qtdM">--</strong>
+        </div><br>
+        <button onclick="resgatar()" id="btnResgatar" class="btn-pegar">...</button>
     </div>
+
     <div id="telaVoucher" style="display:none;">
-        <h2 class="no-print" style="color:#003399;">SUCESSO! 🎉</h2>
+        <h2 class="no-print" style="color:#003399;">PARABÉNS! 🎉</h2>
         <div class="ticket-paper" id="ticketContainer">
-            <div class="ticket-body">
-                <img src="logo.png" width="100" style="margin-bottom:15px;" onerror="this.style.display='none'">
-                <p class="ticket-header">Voucher Promocional</p>
-                <h1 id="voucherNome" class="ticket-offer">...</h1>
-                <div class="codigo-box" id="codBox">
-                    <p style="font-size:10px; margin:0; color:#999; text-transform:uppercase;">Código de Autorização</p>
-                    <div class="codigo-texto" id="codGerado">...</div>
-                </div>
-                <p style="font-size:12px; color:#555;">Emitido em: <span id="dataHora" style="font-weight:bold;"></span><br><span style="color:#F37021; font-weight:bold;">Válido apenas hoje nesta unidade.</span></p>
-            </div>
-            <div class="serrilhado"></div>
+            <p style="font-size:14px; color:#666;">VOUCHER OFICIAL</p>
+            <h2 id="voucherNome" style="color:#333;">...</h2>
+            <div class="codigo-texto" id="codGerado">...</div>
+            <p style="font-size:12px; color:#555;">Gerado: <span id="dataHora"></span></p>
+            <p style="font-size:12px; font-weight:bold; color:red;">Válido hoje.</p>
         </div>
-        <button onclick="window.print()" class="btn-pegar no-print" style="background:#333; margin-top:30px;">🖨️ IMPRIMIR / SALVAR</button>
-        <p class="no-print" style="font-size:12px; color:gray; margin-top:20px;">⚠️ Você já garantiu seu cupom de hoje.</p>
+        <button onclick="window.print()" class="btn-pegar no-print" style="background:#333; margin-top:20px;">🖨️ IMPRIMIR</button>
     </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         let ofertaAtual = null;
         
-        // --- TRAVA DE 1 POR DIA ---
+        // Trava de 1 por dia
         const hoje = new Date().toLocaleDateString('pt-BR');
-        const salvo = localStorage.getItem('ampm_cupom_v2');
-        const dataSalva = localStorage.getItem('ampm_data_v2');
+        const salvo = localStorage.getItem('ampm_cupom_final');
+        const dataSalva = localStorage.getItem('ampm_data_final');
         if (salvo && dataSalva === hoje) { mostrarVoucher(JSON.parse(salvo)); }
 
         socket.on('trocar_slide', (d) => {
-            // Só atualiza se não tiver pego cupom
             if (document.getElementById('telaVoucher').style.display === 'none') {
                 ofertaAtual = d;
-                const imgTag = document.getElementById('fotoM');
-                imgTag.style.display = 'block'; 
-                imgTag.src = d.arquivo;
                 document.getElementById('nomeM').innerText = d.nome;
                 document.getElementById('qtdM').innerText = d.qtd;
-                document.getElementById('btnResgatar').style.background = d.corPrincipal;
+                const btn = document.getElementById('btnResgatar');
+                btn.style.background = d.corPrincipal;
                 
                 if(d.ehSorteio) {
-                     document.getElementById('btnResgatar').style.color = '#003399';
-                     document.getElementById('btnResgatar').innerText = "TENTAR A SORTE (5%)";
+                     btn.style.color = (d.corPrincipal === '#FFD700') ? '#003399' : 'white';
+                     btn.innerText = "TENTAR A SORTE (5%)";
                 } else {
-                     document.getElementById('btnResgatar').style.color = 'white';
-                     document.getElementById('btnResgatar').innerText = "GARANTIR AGORA";
+                     btn.style.color = 'white';
+                     btn.innerText = "GARANTIR AGORA";
                 }
             }
         });
+
         socket.emit('pedir_atualizacao');
+
         function resgatar() { if(ofertaAtual) socket.emit('resgatar_oferta', ofertaAtual.id); }
+
         socket.on('sucesso', (dados) => {
             const agora = new Date();
-            dados.horaTexto = agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-            localStorage.setItem('ampm_cupom_v2', JSON.stringify(dados));
-            localStorage.setItem('ampm_data_v2', agora.toLocaleDateString('pt-BR'));
+            dados.horaTexto = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR');
+            localStorage.setItem('ampm_cupom_final', JSON.stringify(dados));
+            localStorage.setItem('ampm_data_final', agora.toLocaleDateString('pt-BR'));
             mostrarVoucher(dados);
         });
+
         function mostrarVoucher(dados) {
             document.getElementById('telaPegar').style.display='none';
             document.getElementById('telaVoucher').style.display='block';
@@ -248,7 +242,6 @@ const htmlMobile = `
             document.getElementById('dataHora').innerText = dados.horaTexto;
             document.getElementById('ticketContainer').style.borderTopColor = dados.corPrincipal;
             document.getElementById('codGerado').style.color = dados.corPrincipal;
-            document.getElementById('codBox').style.borderColor = dados.corPrincipal;
             
             if(dados.isGold) {
                 document.body.style.backgroundColor = "#FFD700";
@@ -260,20 +253,23 @@ const htmlMobile = `
 </html>
 `;
 
-// --- ADMIN COMPLETO ---
+// --- ADMIN ---
 const htmlAdmin = `
 <!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><body style="font-family:Arial; padding:20px; background:#222; color:white;">
-<h1>🎛️ Controle AMPM</h1><div id="paineis"></div><script src="/socket.io/socket.io.js"></script><script>const socket=io();socket.on('dados_admin',(lista)=>{const div=document.getElementById('paineis');div.innerHTML="";lista.forEach((c,index)=>{
-let max=0;let hora=0;c.resgatesPorHora.forEach((q,h)=>{if(q>max){max=q;hora=h}});const pico=max>0?hora+":00h ("+max+" un)":"Sem dados";
-div.innerHTML+=\`<div style="background:#444; padding:15px; margin-bottom:15px; border-radius:10px; border-left: 8px solid \${c.ativa?'#0f0':'#f00'}"><h3 style="margin-top:0;">\${c.nome}</h3><div style="display:flex; gap:10px; align-items:center; background:#333; padding:10px; border-radius:5px; margin-bottom:10px;"><label>Estoque:</label><input id="qtd_\${index}" type="number" value="\${c.qtd}" style="width:60px; font-weight:bold;"><button onclick="salvar(\${index})" style="padding:5px 10px; background:#00cc00; color:white; border:none; cursor:pointer;">💾 Salvar</button></div><div style="background:#222; padding:10px; border-radius:5px; font-size:14px; color:#ccc;"><p style="margin:5px 0;">📈 <b>Total Resgatado:</b> <span style="color:#00ff00; font-size:18px;">\${c.totalResgates}</span></p><p style="margin:5px 0;">⏰ <b>Horário de Pico:</b> \${pico}</p><p style="margin:5px 0; border-top:1px solid #555; padding-top:5px;">🔍 <b>Último:</b> <span style="color:yellow;">\${c.ultimoCupom}</span> <small>(\${c.ultimaHora})</small></p></div></div>\`});});function salvar(id){const q=document.getElementById('qtd_'+id).value;socket.emit('admin_update',{id:id,qtd:q});alert('Atualizado!');}</script></body></html>
+<h1>🎛️ Admin AMPM</h1><div id="paineis"></div><script src="/socket.io/socket.io.js"></script><script>const socket=io();socket.on('dados_admin',(lista)=>{const div=document.getElementById('paineis');div.innerHTML="";lista.forEach((c,index)=>{div.innerHTML+=\`<div style="background:#444; padding:15px; margin-bottom:15px; border-radius:10px; border-left: 8px solid \${c.ativa?'#0f0':'#f00'}"><h3 style="margin-top:0;">\${c.nome}</h3><label>Estoque: </label><input id="qtd_\${index}" type="number" value="\${c.qtd}" style="width:60px;"> <button onclick="salvar(\${index})">Salvar</button><br><br><span>📈 Já Pegaram: <b>\${c.totalResgates}</b></span></div>\`});});function salvar(id){const q=document.getElementById('qtd_'+id).value;socket.emit('admin_update',{id:id,qtd:q});alert('Atualizado!');}</script></body></html>
 `;
 
+// --- ROTAS ---
 app.get('/tv', (req, res) => res.send(htmlTV));
 app.get('/admin', (req, res) => res.send(htmlAdmin));
 app.get('/mobile', (req, res) => res.send(htmlMobile));
 app.get('/', (req, res) => res.redirect('/tv'));
-app.get('/qrcode', (req, res) => { const url = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/mobile`; QRCode.toDataURL(url, (e, s) => res.send(s)); });
+app.get('/qrcode', (req, res) => { 
+    const url = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/mobile`; 
+    QRCode.toDataURL(url, (e, s) => res.send(s)); 
+});
 
+// --- LÓGICA ---
 io.on('connection', (socket) => {
     socket.emit('trocar_slide', campanhas[slideAtual]);
     socket.emit('dados_admin', campanhas);
@@ -284,32 +280,22 @@ io.on('connection', (socket) => {
         if (camp && camp.qtd > 0) {
             camp.qtd--;
             camp.totalResgates++;
-            const agora = new Date();
-            const horaAtual = agora.getHours();
-            if(horaAtual >= 0 && horaAtual <= 23) camp.resgatesPorHora[horaAtual]++;
-            camp.ultimoCupom = gerarCodigo(camp.prefixo);
-            camp.ultimaHora = agora.toLocaleTimeString('pt-BR');
-
             io.emit('atualizar_qtd', camp);
             if(slideAtual === id) io.emit('trocar_slide', camp);
             
-            // Sorteio COMBUSTÍVEL
             let cor1 = camp.corPrincipal; let cor2 = camp.corSecundaria; let nomeFinal = camp.nome; let isGold = false; let prefixo = camp.prefixo;
-            
-            if(camp.ehSorteio) {
+
+            if (camp.ehSorteio) {
                 const sorte = Math.floor(Math.random() * 100) + 1;
-                if (sorte > 95) { // 5% de chance
-                    isGold = true;
-                    nomeFinal = "PARABÉNS! 50% DE DESCONTO";
+                if (sorte > 95) { 
+                    isGold = true; nomeFinal = "PARABÉNS! 50% OFF";
                 } else {
-                    cor1 = '#cccccc'; cor2 = '#333333';
-                    nomeFinal = "Ganhou: 2% OFF (Consolação)";
-                    prefixo = "DESC";
+                    cor1 = '#ccc'; cor2 = '#333'; nomeFinal = "Ganhou: 2% OFF"; prefixo = "DESC";
                 }
             }
 
             socket.emit('sucesso', { 
-                codigo: camp.ultimoCupom, 
+                codigo: gerarCodigo(prefixo), 
                 produto: nomeFinal,
                 corPrincipal: cor1, 
                 corSecundaria: cor2,
@@ -318,9 +304,13 @@ io.on('connection', (socket) => {
             io.emit('dados_admin', campanhas);
         }
     });
-    socket.on('admin_update', (d) => { campanhas[d.id].qtd = parseInt(d.qtd); campanhas[d.id].ativa = d.ativa; io.emit('dados_admin', campanhas); if(slideAtual === d.id) io.emit('trocar_slide', campanhas[d.id]); });
+
+    socket.on('admin_update', (d) => { 
+        campanhas[d.id].qtd = parseInt(d.qtd); 
+        io.emit('dados_admin', campanhas); 
+        if(slideAtual === d.id) io.emit('trocar_slide', campanhas[d.id]); 
+    });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`AMPM rodando na porta ${PORT}`));
-
+server.listen(PORT, () => console.log(`Rodando na porta ${PORT}`));
