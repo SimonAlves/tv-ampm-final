@@ -7,57 +7,93 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// Serve os arquivos da pasta public
 app.use(express.static(__dirname));
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO AMPM (Posto Ipiranga) ---
+// --- BANCO DE DADOS (HISTÓRICO) ---
+let historicoVendas = []; 
+
+// --- CONFIGURAÇÃO POLIPET (IGUAL AO SEU GITHUB) ---
 let campanhas = [
-    // SLIDE 0: COMBUSTÍVEL (Sorteio - Dourado)
+    // 0. CUPOM DA SORTE (A imagem bonita que você subiu)
     { 
         id: 0, 
         tipo: 'foto', 
-        arquivo: "slide1.jpg", // Nome exato do arquivo no GitHub
-        nome: "Sorteio 50% OFF", 
-        qtd: 5, 
+        arquivo: "sorteio.jpg", // <--- AGORA VAI LER SEU ARQUIVO CERTO
+        nome: "Sorteio da Sorte", 
+        qtd: 999, // Ilimitado pois a sorte define o prêmio
         ativa: true, 
         corPrincipal: '#FFD700', // Dourado
         corSecundaria: '#003399', // Azul
-        prefixo: 'GOLD',
-        ehSorteio: true, 
+        prefixo: 'SORTE',
+        ehSorteio: true,
         totalResgates: 0,
         resgatesPorHora: new Array(24).fill(0),
         ultimoCupom: "Nenhum",
         ultimaHora: "--:--"
     },
-    // SLIDE 1: DUCHA GRÁTIS (Azul)
+    // 1. PREMIER (Volta ao Normal)
     { 
         id: 1, 
         tipo: 'foto', 
-        arquivo: "slide2.jpg", // Nome exato do arquivo no GitHub
-        nome: "Ducha Grátis",   
-        qtd: 50, 
+        arquivo: "slide1.jpg", 
+        nome: "Ração Premier", 
+        qtd: 10, 
         ativa: true, 
-        corPrincipal: '#0055aa', // Azul Escuro
-        corSecundaria: '#0099ff', // Azul Claro
-        prefixo: 'DUCHA',
+        corPrincipal: '#e60000', // Vermelho
+        corSecundaria: '#990000', 
+        prefixo: 'PREMIER',
+        ehSorteio: false, // Normal
+        totalResgates: 0,
+        resgatesPorHora: new Array(24).fill(0),
+        ultimoCupom: "Nenhum",
+        ultimaHora: "--:--"
+    },
+    // 2. SPECIAL DOG
+    { 
+        id: 2, 
+        tipo: 'foto', 
+        arquivo: "slide2.jpg", 
+        nome: "Special Dog",   
+        qtd: 15, 
+        ativa: true, 
+        corPrincipal: '#0055aa', // Azul
+        corSecundaria: '#003366', 
+        prefixo: 'SPECIAL',
         ehSorteio: false,
         totalResgates: 0,
         resgatesPorHora: new Array(24).fill(0),
         ultimoCupom: "Nenhum",
         ultimaHora: "--:--"
     },
-    // SLIDE 2: CAFÉ (Laranja)
+    // 3. ADIMAX
     { 
-        id: 2, 
+        id: 3, 
         tipo: 'foto', 
-        arquivo: "slide3.jpg", // Nome exato do arquivo no GitHub
-        nome: "Café Expresso Grátis",        
-        qtd: 50, 
+        arquivo: "slide3.jpg", 
+        nome: "Adimax",        
+        qtd: 20, 
         ativa: true, 
-        corPrincipal: '#F37021', // Laranja
-        corSecundaria: '#663300', // Marrom
-        prefixo: 'CAFE',
+        corPrincipal: '#009933', // Verde
+        corSecundaria: '#004411', 
+        prefixo: 'ADIMAX',
+        ehSorteio: false,
+        totalResgates: 0,
+        resgatesPorHora: new Array(24).fill(0),
+        ultimoCupom: "Nenhum",
+        ultimaHora: "--:--"
+    },
+    // 4. NATTU (VÍDEO)
+    { 
+        id: 4, 
+        tipo: 'video', 
+        arquivo: "nattu.mp4", 
+        nome: "Premier Nattu",        
+        qtd: 30, 
+        ativa: true, 
+        corPrincipal: '#6aa84f', 
+        corSecundaria: '#ffffff', 
+        prefixo: 'NATTU',
         ehSorteio: false,
         totalResgates: 0,
         resgatesPorHora: new Array(24).fill(0),
@@ -68,7 +104,6 @@ let campanhas = [
 
 let slideAtual = 0;
 
-// Rotação (15s)
 setInterval(() => {
     slideAtual++;
     if (slideAtual >= campanhas.length) slideAtual = 0;
@@ -77,117 +112,102 @@ setInterval(() => {
 
 function gerarCodigo(prefixo) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let res = '';
-    for (let i = 0; i < 4; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+    let result = '';
+    for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
     return `${prefixo}-${result}`;
 }
 
-// Rota Relatório
+// ROTA DOWNLOAD
 app.get('/baixar-relatorio', (req, res) => {
-    let csv = "\uFEFFDATA,HORA,PRODUTO,CODIGO\n";
-    // Lógica simples de CSV se tiver dados
+    let csv = "\uFEFFDATA,HORA,PRODUTO,CODIGO,TIPO_PREMIO\n";
+    historicoVendas.forEach(h => {
+        csv += `${h.data},${h.hora},${h.produto},${h.codigo},${h.tipo}\n`;
+    });
     res.header('Content-Type', 'text/csv; charset=utf-8');
-    res.attachment('relatorio.csv');
+    res.attachment('relatorio-polipet.csv');
     res.send(csv);
 });
 
-// --- HTML DA TV (COM CORREÇÃO DE ERRO DE IMAGEM) ---
+// --- HTML TV ---
 const htmlTV = `
-<!DOCTYPE html>
-<html>
-<head><title>TV AMPM</title></head>
-<body style="margin:0; background:black; overflow:hidden; font-family:Arial; display:flex; flex-direction:column; height:100vh;">
-    
-    <div style="display:flex; flex:1; width:100%; transition: background 0.5s;">
-        <div style="flex:3; background:#333; display:flex; align-items:center; justify-content:center; overflow:hidden;" id="bgEsq">
-            
-            <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;" 
-                 onerror="this.style.display='none'; document.getElementById('erroImg').style.display='block';">
-            
-            <div id="erroImg" style="display:none; color:white; text-align:center;">
-                <h2>Aguardando Imagem...</h2>
-                <p>Verifique o nome do arquivo no GitHub.</p>
-            </div>
-
-        </div>
-
-        <div style="flex:1; background:#003399; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid #FFCC00; text-align:center; color:white;" id="bgDir">
-            <img src="logo.png" style="width:140px; background:white; padding:10px; border-radius:15px; margin-bottom:20px;">
-            
-            <h1 id="nomeProd" style="font-size:2.2rem; padding:0 10px; font-weight:800;">Carregando...</h1>
-            
-            <div style="background:white; padding:10px; border-radius:10px; margin-top:10px;">
-                <img id="qr" src="qrcode.png" style="width:200px; display:block;" 
-                     onerror="this.onerror=null; fetch('/qrcode').then(r=>r.text()).then(u=>this.src=u);">
-            </div>
-            
-            <p style="margin-top:15px; font-weight:bold; font-size:1.3rem; color:#FFCC00;" id="txtScan">APONTE A CÂMERA</p>
-            
-            <div id="boxNum" style="margin-top:20px; border-top:2px dashed rgba(255,255,255,0.3); width:80%; padding-top:20px;">
-                <span style="font-size:1rem;">RESTAM APENAS:</span><br>
-                <span id="num" style="font-size:6rem; color:#FFCC00; font-weight:900; line-height:1;">--</span>
-            </div>
-        </div>
-    </div>
-
-    <div style="height:10vh; background:#111; border-top: 4px solid #F37021; display:flex; align-items:center; justify-content:space-around; color:#888; padding: 0 20px;">
-        <span style="font-weight:bold;">PARCEIROS:</span>
-        <h2 style="margin:0; color:white; font-style:italic;">Ipiranga</h2>
-        <h2 style="margin:0; color:#FFCC00;">Abastece-aí</h2>
-        <h2 style="margin:0; color:#F37021;">AMPM</h2>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        const imgTag = document.getElementById('imgDisplay');
-        const erroMsg = document.getElementById('erroImg');
-
-        socket.on('trocar_slide', (d) => { actualizarTela(d); });
-        socket.on('atualizar_qtd', (d) => {
-             if(document.getElementById('nomeProd').innerText === d.nome) {
-                document.getElementById('num').innerText = d.qtd;
-             }
-        });
-
-        function actualizarTela(d) {
-            document.getElementById('nomeProd').innerText = d.nome;
-            document.getElementById('num').innerText = d.qtd;
-            
-            // Cores
-            document.getElementById('bgDir').style.background = d.corPrincipal;
-            document.getElementById('bgEsq').style.background = d.corSecundaria;
-            const corTexto = (d.corPrincipal === '#FFD700' || d.corPrincipal === '#FFCC00') ? '#003399' : 'white';
-            document.getElementById('bgDir').style.color = corTexto;
-            document.getElementById('num').style.color = (d.corPrincipal === '#FFD700') ? '#003399' : '#FFCC00';
-            document.getElementById('txtScan').style.color = (d.corPrincipal === '#FFD700') ? '#003399' : '#FFCC00';
-
-            // Reset da imagem
-            imgTag.style.display = 'block';
-            erroMsg.style.display = 'none';
-            
-            // Atualiza a fonte da imagem
-            imgTag.src = d.arquivo;
-
-            if(d.ehSorteio) {
-                document.getElementById('boxNum').style.display = 'none';
-                document.getElementById('txtScan').innerText = "TENTE A SORTE!";
-            } else {
-                document.getElementById('boxNum').style.display = 'block';
-                document.getElementById('txtScan').innerText = "GARANTA O SEU";
-            }
-        }
-    </script>
-</body>
-</html>
+<!DOCTYPE html><html><head><title>TV Polipet</title></head><body style="margin:0; background:black; overflow:hidden; font-family:Arial; display:flex; flex-direction:column; height:100vh;"><div style="display:flex; flex:1; width:100%; transition: background 0.5s;"><div style="flex:3; background:#ccc; display:flex; align-items:center; justify-content:center; overflow:hidden;" id="bgEsq"><img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;"><video id="vidDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;" muted playsinline></video></div><div style="flex:1; background:#ce0000; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid white; text-align:center; color:white;" id="bgDir"><img src="logo.png" onerror="this.style.display='none'" style="width:160px; background:white; padding:15px; border-radius:15px; margin-bottom:30px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);"><h1 id="nomeProd" style="font-size:2.2rem; padding:0 10px; line-height:1.1; text-transform:uppercase; font-weight:800;">...</h1><div style="background:white; padding:10px; border-radius:10px; margin-top:20px;"><img id="qr" src="qrcode.png" style="width:200px; display:block;" onerror="this.onerror=null; fetch('/qrcode').then(r=>r.text()).then(u=>this.src=u);"></div><p style="margin-top:10px; font-weight:bold; font-size:1.2rem; color:#FFF;" id="txtScan">ESCANEIE AGORA</p><div id="boxNum" style="margin-top:30px; border-top:2px dashed rgba(255,255,255,0.3); width:80%; padding-top:20px;"><span style="font-size:1rem;">RESTAM APENAS:</span><br><span id="num" style="font-size:6rem; color:#fff; font-weight:900; line-height:1;">--</span></div></div></div><div style="height:10vh; background:#111; border-top: 4px solid #e60000; display:flex; align-items:center; justify-content:space-around; color:#888; padding: 0 20px;"><span style="font-weight:bold;">PARCEIROS:</span><h2 style="margin:0; color:white; font-style:italic;">PremieR</h2><h2 style="margin:0; color:#007bff;">Special Dog</h2><h2 style="margin:0; color:#009933;">Adimax</h2><h2 style="margin:0; color:#e60000;">Polipet</h2></div><script src="/socket.io/socket.io.js"></script><script>const socket=io();const imgTag=document.getElementById('imgDisplay');const vidTag=document.getElementById('vidDisplay');socket.on('trocar_slide',d=>{actualizarTela(d)});socket.on('atualizar_qtd',d=>{if(document.getElementById('nomeProd').innerText===d.nome){document.getElementById('num').innerText=d.qtd}});function actualizarTela(d){document.getElementById('nomeProd').innerText=d.nome;document.getElementById('num').innerText=d.qtd;document.getElementById('bgDir').style.background=d.corPrincipal;document.getElementById('bgEsq').style.background=d.corSecundaria;if(d.ehSorteio){document.getElementById('boxNum').style.display='none';document.getElementById('txtScan').innerText="TENTE A SORTE!"}else{document.getElementById('boxNum').style.display='block';document.getElementById('txtScan').innerText="GARANTA O SEU"}if(d.tipo==='video'){imgTag.style.display='none';vidTag.style.display='block';vidTag.src=d.arquivo;vidTag.play().catch(e=>console.log(e))}else{vidTag.pause();vidTag.style.display='none';imgTag.style.display='block';imgTag.src=d.arquivo}}</script></body></html>
 `;
 
 // --- HTML MOBILE ---
 const htmlMobile = `
-<!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;background:#f0f2f5;margin:0}.btn-pegar{width:100%;padding:20px;color:white;border:none;border-radius:10px;font-size:20px;margin-top:20px;font-weight:bold;box-shadow:0 4px 10px rgba(0,0,0,0.2)}.img-prod{width:100%;max-width:300px;border-radius:10px;margin-bottom:15px;box-shadow:0 4px 12px rgba(0,0,0,0.15)}.ticket-paper{background:#fff;padding:0;margin-top:20px;box-shadow:0 5px 15px rgba(0,0,0,0.1);border-top:10px solid #F37021}.ticket-body{padding:25px}.codigo-texto{font-size:32px;font-weight:bold;letter-spacing:2px;font-family:monospace;color:#333}.no-print{display:block}@media print{.no-print{display:none}body{background:white}.ticket-paper{box-shadow:none;border:1px solid #ccc}}</style><body><div id="telaPegar"><h3 style="color:#555;font-size:14px">OFERTA DISPONÍVEL:</h3><img id="fotoM" src="" class="img-prod"><h2 id="nomeM" style="color:#003399;margin:10px 0">...</h2><div style="background:white;padding:15px;border-radius:8px;display:inline-block"><span style="color:#666;font-size:12px">ESTOQUE</span><br><strong id="qtdM" style="font-size:24px;color:#333">--</strong></div><br><button onclick="resgatar()" id="btnResgatar" class="btn-pegar">RESGATAR CUPOM</button></div><div id="telaVoucher" style="display:none"><h2 class="no-print" style="color:#003399">SUCESSO! 🎉</h2><div class="ticket-paper" id="ticketContainer"><div class="ticket-body"><img src="logo.png" width="100" style="margin-bottom:15px" onerror="this.style.display='none'"><p style="font-size:14px;color:#666">VOUCHER PROMOCIONAL</p><h1 id="voucherNome" style="font-size:24px;color:#333;margin:5px 0">...</h1><div style="background:#f8f9fa;border:2px dashed #ccc;padding:15px;margin:20px 0"><div class="codigo-texto" id="codGerado">...</div></div><p style="font-size:12px;color:#555">Gerado em: <span id="dataHora" style="font-weight:bold"></span><br>Válido hoje.</p></div></div><button onclick="window.print()" class="btn-pegar no-print" style="background:#333;margin-top:20px">🖨️ IMPRIMIR</button></div><script src="/socket.io/socket.io.js"></script><script>const socket=io();let ofertaAtual=null;const hoje=new Date().toLocaleDateString('pt-BR');const salvo=localStorage.getItem('ampm_cupom_v5');const dataSalva=localStorage.getItem('ampm_data_v5');if(salvo&&dataSalva===hoje){mostrarVoucher(JSON.parse(salvo))}socket.on('trocar_slide',d=>{if(document.getElementById('telaVoucher').style.display==='none'){ofertaAtual=d;document.getElementById('fotoM').src=d.arquivo;document.getElementById('nomeM').innerText=d.nome;document.getElementById('qtdM').innerText=d.qtd;const btn=document.getElementById('btnResgatar');btn.style.background=d.corPrincipal;if(d.ehSorteio){btn.style.color='#003399';btn.innerText="TENTAR A SORTE (5%)"}else{btn.style.color='white';btn.innerText="GARANTIR AGORA"}}});socket.emit('pedir_atualizacao');function resgatar(){if(ofertaAtual)socket.emit('resgatar_oferta',ofertaAtual.id)}socket.on('sucesso',dados=>{const agora=new Date();dados.horaTexto=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR');localStorage.setItem('ampm_cupom_v5',JSON.stringify(dados));localStorage.setItem('ampm_data_v5',agora.toLocaleDateString('pt-BR'));mostrarVoucher(dados)});function mostrarVoucher(dados){document.getElementById('telaPegar').style.display='none';document.getElementById('telaVoucher').style.display='block';document.getElementById('voucherNome').innerText=dados.produto;document.getElementById('codGerado').innerText=dados.codigo;document.getElementById('dataHora').innerText=dados.horaTexto;document.getElementById('ticketContainer').style.borderTopColor=dados.corPrincipal;if(dados.isGold){document.body.style.backgroundColor="#FFD700";document.getElementById('voucherNome').innerHTML="🌟 "+dados.produto+" 🌟"}}</script></body></html>`;
+<!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;background:#f4f4f4;margin:0;transition:background 0.3s}.loader{border:5px solid #f3f3f3;border-top:5px solid #e60000;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:20px auto}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}.ticket-white{background:white;padding:20px;border-radius:15px;margin-top:20px;box-shadow:0 10px 25px rgba(0,0,0,0.1);position:relative;overflow:hidden}.codigo-texto{font-size:28px;font-weight:bold;letter-spacing:1px;font-family:monospace;color:#e60000}.no-print{display:block}@media print{.no-print{display:none}body{background:white}.ticket-white{box-shadow:none;border:2px solid black}}</style><body>
+<div id="telaPegar" style="margin-top:50px;">
+    <img src="logo.png" width="150" style="margin-bottom:20px">
+    <h2 style="color:#333;">Gerando seu cupom...</h2>
+    <div class="loader"></div>
+    <p style="color:#666;">Aguarde um instante</p>
+</div>
+<div id="telaVoucher" style="display:none">
+    <h2 id="tituloParabens" class="no-print" style="color:#e60000">PARABÉNS! 🎉</h2>
+    <div class="ticket-white" id="ticketContainer">
+        <div style="padding:25px">
+            <img src="logo.png" width="100" style="margin-bottom:15px" onerror="this.style.display='none'">
+            <p style="font-size:14px;color:#666">VOUCHER POLIPET</p>
+            <h1 id="voucherNome" style="font-size:24px;margin:5px 0">...</h1>
+            <div style="background:#f9f9f9;border:2px dashed #ccc;padding:15px;margin:20px 0">
+                <div class="codigo-texto" id="codGerado">...</div>
+            </div>
+            <p style="font-size:12px;color:gray">Gerado em: <span id="dataHora" style="font-weight:bold"></span><br>Válido hoje.</p>
+        </div>
+    </div>
+    <button onclick="window.print()" class="btn-pegar no-print" style="background:#333;color:white;padding:15px;width:100%;border:none;border-radius:10px;margin-top:30px;font-size:18px">🖨️ IMPRIMIR</button>
+    <p class="no-print" style="font-size:12px;color:gray;margin-top:20px">⚠️ Você já garantiu seu cupom de hoje.</p>
+</div>
+<script src="/socket.io/socket.io.js"></script><script>
+const socket=io();
+let jaPediu=false;
+const hoje=new Date().toLocaleDateString('pt-BR');
+const salvo=localStorage.getItem('polipet_cupom_v11');
+const dataSalva=localStorage.getItem('polipet_data_v11');
+if(salvo&&dataSalva===hoje){mostrarVoucher(JSON.parse(salvo))}
+
+socket.on('trocar_slide',d=>{
+    if(document.getElementById('telaVoucher').style.display==='none' && !jaPediu){
+        jaPediu = true;
+        setTimeout(() => { socket.emit('resgatar_oferta', d.id); }, 1500);
+    }
+});
+socket.emit('pedir_atualizacao');
+
+socket.on('sucesso',dados=>{
+    const agora=new Date();
+    dados.horaTexto=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR');
+    localStorage.setItem('polipet_cupom_v11',JSON.stringify(dados));
+    localStorage.setItem('polipet_data_v11',agora.toLocaleDateString('pt-BR'));
+    mostrarVoucher(dados);
+});
+
+function mostrarVoucher(dados){
+    document.getElementById('telaPegar').style.display='none';
+    document.getElementById('telaVoucher').style.display='block';
+    document.getElementById('voucherNome').innerText=dados.produto;
+    document.getElementById('codGerado').innerText=dados.codigo;
+    document.getElementById('dataHora').innerText=dados.horaTexto;
+    document.getElementById('ticketContainer').style.borderTopColor=dados.corPrincipal;
+    if(dados.isGold){
+        document.body.style.backgroundColor="#FFD700";
+        document.getElementById('tituloParabens').innerText="🌟 SORTE GRANDE! 🌟";
+        document.getElementById('tituloParabens').style.color="#003399";
+    }
+}
+</script></body></html>`;
 
 // --- ADMIN ---
-const htmlAdmin = `<!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><body style="font-family:Arial;padding:20px;background:#222;color:white"><h1>Painel Admin</h1><div id="paineis"></div><script src="/socket.io/socket.io.js"></script><script>const socket=io();socket.on('dados_admin',(lista)=>{const div=document.getElementById('paineis');div.innerHTML="";lista.forEach((c,index)=>{div.innerHTML+=\`<div style="background:#444;padding:15px;margin-bottom:15px;border-radius:10px;border-left:8px solid \${c.ativa?'#0f0':'#f00'}"><h3>\${c.nome}</h3>Estoque: <input id="qtd_\${index}" type="number" value="\${c.qtd}" style="width:60px;"> <button onclick="salvar(\${index})">Salvar</button><br><span>📈 Já: \${c.totalResgates}</span></div>\`})});function salvar(id){const q=document.getElementById('qtd_'+id).value;socket.emit('admin_update',{id:id,qtd:q});alert('Ok!')}</script></body></html>`;
+const htmlAdmin = `
+<!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><body style="font-family:Arial; padding:20px; background:#222; color:white;">
+<h1>🎛️ Painel Polipet</h1>
+<div style="margin-bottom: 20px; padding: 15px; background: #333; border-radius: 10px; border: 1px solid #555;">
+    <h3>📊 Relatório de Vendas</h3>
+    <a href="/baixar-relatorio" target="_blank"><button style="padding:10px 20px; background:#009933; color:white; border:none; font-weight:bold; cursor:pointer;">📥 BAIXAR EXCEL</button></a>
+</div>
+<div id="paineis"></div>
+<script src="/socket.io/socket.io.js"></script><script>const socket=io();socket.on('dados_admin',(lista)=>{const div=document.getElementById('paineis');div.innerHTML="";lista.forEach((c,index)=>{let max=0;let hora=0;c.resgatesPorHora.forEach((q,h)=>{if(q>max){max=q;hora=h}});const pico=max>0?hora+":00h ("+max+" un)":"Sem dados";div.innerHTML+=\`<div style="background:#444; padding:15px; margin-bottom:15px; border-radius:10px; border-left: 8px solid \${c.ativa?'#0f0':'#f00'}"><h3>\${c.nome}</h3><div style="display:flex; gap:10px;"><label>Estoque:</label><input id="qtd_\${index}" type="number" value="\${c.qtd}" style="width:60px;"><button onclick="salvar(\${index})">Salvar</button></div><br><span>📈 Resgates: <b>\${c.totalResgates}</b></span><br><small>Pico: \${pico}</small></div>\`})});function salvar(id){const q=document.getElementById('qtd_'+id).value;socket.emit('admin_update',{id:id,qtd:q});alert('Ok!')}</script></body></html>
+`;
 
 // --- ROTAS ---
 app.get('/tv', (req, res) => res.send(htmlTV));
@@ -196,7 +216,7 @@ app.get('/mobile', (req, res) => res.send(htmlMobile));
 app.get('/', (req, res) => res.redirect('/tv'));
 app.get('/qrcode', (req, res) => { const url = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/mobile`; QRCode.toDataURL(url, (e, s) => res.send(s)); });
 
-// --- LÓGICA SERVIDOR ---
+// --- LÓGICA DO SERVIDOR ---
 io.on('connection', (socket) => {
     socket.emit('trocar_slide', campanhas[slideAtual]);
     socket.emit('dados_admin', campanhas);
@@ -205,25 +225,44 @@ io.on('connection', (socket) => {
     socket.on('resgatar_oferta', (id) => {
         let camp = campanhas[id];
         if (camp && camp.qtd > 0) {
-            camp.qtd--;
+            // Desconta estoque (menos no sorteio, que é ilimitado em tentativas)
+            if(!camp.ehSorteio) camp.qtd--;
+            
             camp.totalResgates++;
+            const agora = new Date();
+            const hora = agora.getHours();
+            if(hora >= 0 && hora <= 23) camp.resgatesPorHora[hora]++;
+            camp.ultimoCupom = gerarCodigo(camp.prefixo);
+            camp.ultimaHora = agora.toLocaleTimeString('pt-BR');
+
             io.emit('atualizar_qtd', camp);
             if(slideAtual === id) io.emit('trocar_slide', camp);
             
-            const sorte = Math.floor(Math.random() * 100) + 1;
+            // SORTEIO (1% ganha R$ 100, 5% ganha R$ 50)
             let cor1 = camp.corPrincipal; let cor2 = camp.corSecundaria; let nomeFinal = camp.nome; let isGold = false; let prefixo = camp.prefixo;
+            let tipoPremio = "Normal";
 
             if (camp.ehSorteio) {
-                if (sorte > 95) { isGold = true; nomeFinal = "PARABÉNS! 50% OFF"; }
-                else { cor1 = '#ccc'; cor2 = '#333'; nomeFinal = "Ganhou: 2% OFF"; prefixo = "DESC"; }
+                const sorte = Math.floor(Math.random() * 100) + 1;
+                
+                if (sorte > 99) { // 1%
+                    isGold = true; nomeFinal = "🏆 GANHOU R$ 100,00 OFF"; cor1='#FFD700'; tipoPremio="OURO";
+                } else if (sorte > 95) { // 4%
+                    isGold = true; nomeFinal = "🥇 GANHOU R$ 50,00 OFF"; cor1='#C0C0C0'; tipoPremio="PRATA";
+                } else {
+                    nomeFinal = "Ganhou: 5% OFF"; prefixo="MIN"; tipoPremio="BRONZE";
+                }
             }
 
-            socket.emit('sucesso', { codigo: gerarCodigo(prefixo), produto: nomeFinal, corPrincipal: cor1, corSecundaria: cor2, isGold: isGold });
+            // SALVA
+            historicoVendas.push({ data: agora.toLocaleDateString('pt-BR'), hora: camp.ultimaHora, produto: nomeFinal, codigo: camp.ultimoCupom, tipo: tipoPremio });
+
+            socket.emit('sucesso', { codigo: camp.ultimoCupom, produto: nomeFinal, corPrincipal: cor1, isGold: isGold });
             io.emit('dados_admin', campanhas);
         }
     });
-    socket.on('admin_update', (d) => { campanhas[d.id].qtd = parseInt(d.qtd); campanhas[d.id].ativa = d.ativa; io.emit('dados_admin', campanhas); if(slideAtual === d.id) io.emit('trocar_slide', campanhas[d.id]); });
+    socket.on('admin_update', (d) => { campanhas[d.id].qtd = parseInt(d.qtd); io.emit('dados_admin', campanhas); if(slideAtual === d.id) io.emit('trocar_slide', campanhas[d.id]); });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`AMPM rodando na porta ${PORT}`));
+server.listen(PORT, () => console.log(`Polipet rodando na porta ${PORT}`));
