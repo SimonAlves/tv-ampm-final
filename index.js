@@ -13,13 +13,13 @@ app.use(express.static('public'));
 // --- BANCO DE DADOS (HISTÓRICO) ---
 let historicoVendas = []; 
 
-// --- CONFIGURAÇÃO AMPM (POSTO IPIRANGA) ---
+// --- CONFIGURAÇÃO AMPM (Baseado nos seus arquivos do GitHub) ---
 let campanhas = [
-    // SLIDE 0: COMBUSTÍVEL (Sorteio 50%) - Usa slide1.jpg
+    // SLIDE 0: COMBUSTÍVEL - Usa o arquivo 'slide1.jpg'
     { 
         id: 0, 
         tipo: 'foto', 
-        arquivo: "slide1.jpg", // No seu GitHub já está slide1.jpg (CERTO!)
+        arquivo: "slide1.jpg", // Conforme seu GitHub
         nome: "Sorteio 50% OFF", 
         qtd: 5, 
         ativa: true, 
@@ -32,11 +32,11 @@ let campanhas = [
         ultimoCupom: "Nenhum",
         ultimaHora: "--:--"
     },
-    // SLIDE 1: DUCHA (Garantido) - Usa slide2.jpg
+    // SLIDE 1: DUCHA - Usa o arquivo 'slide2.jpg'
     { 
         id: 1, 
         tipo: 'foto', 
-        arquivo: "slide2.jpg", // No seu GitHub já está slide2.jpg (CERTO!)
+        arquivo: "slide2.jpg", // Conforme seu GitHub
         nome: "Ducha Grátis",   
         qtd: 50, 
         ativa: true, 
@@ -49,11 +49,11 @@ let campanhas = [
         ultimoCupom: "Nenhum",
         ultimaHora: "--:--"
     },
-    // SLIDE 2: CAFÉ (Garantido) - Usa slide3.jpg
+    // SLIDE 2: CAFÉ - Usa o arquivo 'slide3.jpg'
     { 
         id: 2, 
         tipo: 'foto', 
-        arquivo: "slide3.jpg", // No seu GitHub já está slide3.jpg (CERTO!)
+        arquivo: "slide3.jpg", // Conforme seu GitHub
         nome: "Café Expresso Grátis",        
         qtd: 50, 
         ativa: true, 
@@ -104,7 +104,7 @@ const htmlTV = `
              onerror="this.style.display='none'; document.getElementById('avisoErro').style.display='block';">
         <div id="avisoErro" style="display:none; color:white; text-align:center;">
             <h1>⚠️ Carregando...</h1>
-            <p>Se demorar, verifique o GitHub.</p>
+            <p>Se a imagem não aparecer, verifique o nome no GitHub.</p>
         </div>
     </div>
     <div style="flex:1; background:#003399; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid #FFCC00; text-align:center; color:white;" id="bgDir">
@@ -161,14 +161,14 @@ function actualizarTela(d){
 }
 </script></body></html>`;
 
-// --- HTML MOBILE (AMPM) ---
+// --- HTML MOBILE (DIRETO PARA VOUCHER - SEM CLIQUE) ---
 const htmlMobile = `
 <!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;background:#f0f2f5;margin:0;transition:background 0.3s}.loader{border:5px solid #f3f3f3;border-top:5px solid #F37021;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:20px auto}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}.ticket-paper{background:#fff;padding:0;margin-top:20px;box-shadow:0 5px 15px rgba(0,0,0,0.1);border-top:10px solid #F37021}.ticket-body{padding:25px}.codigo-texto{font-size:32px;font-weight:bold;letter-spacing:2px;font-family:monospace;color:#333}.no-print{display:block}@media print{.no-print{display:none}body{background:white}.ticket-paper{box-shadow:none;border:1px solid #ccc}}</style><body>
 <div id="telaPegar" style="margin-top:50px;">
     <img src="logo.png" width="150" style="margin-bottom:20px">
-    <h2 style="color:#333;">Processando oferta...</h2>
+    <h2 style="color:#333;">Gerando seu cupom...</h2>
     <div class="loader"></div>
-    <p style="color:#666;">Verificando disponibilidade...</p>
+    <p style="color:#666;">Por favor, aguarde.</p>
 </div>
 <div id="telaVoucher" style="display:none">
     <h2 id="tituloParabens" class="no-print" style="color:#003399">SUCESSO! 🎉</h2>
@@ -190,16 +190,17 @@ const htmlMobile = `
 const socket=io();
 let jaPediu=false;
 const hoje=new Date().toLocaleDateString('pt-BR');
-const salvo=localStorage.getItem('ampm_cupom_v10');
-const dataSalva=localStorage.getItem('ampm_data_v10');
+const salvo=localStorage.getItem('ampm_cupom_auto');
+const dataSalva=localStorage.getItem('ampm_data_auto');
 
+// Se já tem cupom hoje, mostra direto
 if(salvo&&dataSalva===hoje){mostrarVoucher(JSON.parse(salvo))}
 
 socket.on('trocar_slide',d=>{
+    // Se a tela de voucher não está visível e ainda não pediu, pede automático
     if(document.getElementById('telaVoucher').style.display==='none' && !jaPediu){
         jaPediu = true;
-        // Simula processamento
-        setTimeout(() => { socket.emit('resgatar_oferta', d.id); }, 1000);
+        setTimeout(() => { socket.emit('resgatar_oferta', d.id); }, 1500);
     }
 });
 socket.emit('pedir_atualizacao');
@@ -207,8 +208,8 @@ socket.emit('pedir_atualizacao');
 socket.on('sucesso',dados=>{
     const agora=new Date();
     dados.horaTexto=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR');
-    localStorage.setItem('ampm_cupom_v10',JSON.stringify(dados));
-    localStorage.setItem('ampm_data_v10',agora.toLocaleDateString('pt-BR'));
+    localStorage.setItem('ampm_cupom_auto',JSON.stringify(dados));
+    localStorage.setItem('ampm_data_auto',agora.toLocaleDateString('pt-BR'));
     mostrarVoucher(dados);
 });
 
@@ -222,12 +223,11 @@ function mostrarVoucher(dados){
     if(dados.isGold){
         document.body.style.backgroundColor="#FFD700";
         document.getElementById('tituloParabens').innerText="🌟 SORTE GRANDE! 🌟";
-        document.getElementById('voucherNome').innerHTML="🌟 "+dados.produto+" 🌟";
     }
 }
 </script></body></html>`;
 
-// --- ADMIN (AMPM) ---
+// --- ADMIN ---
 const htmlAdmin = `
 <!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><body style="font-family:Arial; padding:20px; background:#222; color:white;">
 <h1>🎛️ Painel AMPM</h1>
@@ -258,7 +258,7 @@ app.get('/mobile', (req, res) => res.send(htmlMobile));
 app.get('/', (req, res) => res.redirect('/tv'));
 app.get('/qrcode', (req, res) => { const url = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/mobile`; QRCode.toDataURL(url, (e, s) => res.send(s)); });
 
-// --- SERVIDOR ---
+// --- LÓGICA SERVIDOR ---
 io.on('connection', (socket) => {
     socket.emit('trocar_slide', campanhas[slideAtual]);
     socket.emit('dados_admin', campanhas);
