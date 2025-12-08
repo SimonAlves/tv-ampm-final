@@ -13,14 +13,14 @@ app.use(express.static('public'));
 // --- BANCO DE DADOS (HISTÓRICO) ---
 let historicoVendas = []; 
 
-// --- CONFIGURAÇÃO AMPM (AJUSTADA PARA OS NOMES NO SEU GITHUB) ---
+// --- CONFIGURAÇÃO AMPM (AJUSTADA PARA SEUS ARQUIVOS NO GITHUB) ---
 let campanhas = [
     // SLIDE 0: COMBUSTÍVEL (Sorteio)
     { 
         id: 0, 
         tipo: 'foto', 
-        // ATENÇÃO: Ajustado para o nome que vi no seu print
-        arquivo: "slide1.jpg.png.jpg", 
+        // ATENÇÃO: Ajustado para o nome que está no seu GitHub agora
+        arquivo: "slide1.jpg.png", 
         nome: "Sorteio 50% OFF", 
         qtd: 5, 
         ativa: true, 
@@ -37,8 +37,8 @@ let campanhas = [
     { 
         id: 1, 
         tipo: 'foto', 
-        // ATENÇÃO: Ajustado para o nome que vi no seu print
-        arquivo: "slide2.jpg.png.jpg", 
+        // ATENÇÃO: Ajustado para o nome que está no seu GitHub agora
+        arquivo: "slide2.jpg.png", 
         nome: "Ducha Grátis",   
         qtd: 50, 
         ativa: true, 
@@ -55,7 +55,7 @@ let campanhas = [
     { 
         id: 2, 
         tipo: 'foto', 
-        // ATENÇÃO: Ajustado para o nome duplo que vi no seu print
+        // ATENÇÃO: Ajustado para o nome que está no seu GitHub agora
         arquivo: "slide3.jpg.jpg", 
         nome: "Café Expresso Grátis",        
         qtd: 50, 
@@ -87,7 +87,7 @@ function gerarCodigo(prefixo) {
     return `${prefixo}-${result}`;
 }
 
-// Rota Download Excel
+// ROTA DOWNLOAD EXCEL
 app.get('/baixar-relatorio', (req, res) => {
     let csv = "\uFEFFDATA,HORA,PRODUTO,CODIGO,TIPO_PREMIO\n";
     historicoVendas.forEach(h => {
@@ -107,7 +107,7 @@ const htmlTV = `
              onerror="this.style.display='none'; document.getElementById('avisoErro').style.display='block';">
         <div id="avisoErro" style="display:none; color:white; text-align:center;">
             <h1>⚠️ Carregando Imagem...</h1>
-            <p>Se demorar, verifique se o arquivo existe.</p>
+            <p>Aguarde um momento.</p>
         </div>
     </div>
     <div style="flex:1; background:#003399; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid #FFCC00; text-align:center; color:white;" id="bgDir">
@@ -193,15 +193,19 @@ const htmlMobile = `
 const socket=io();
 let jaPediu=false;
 const hoje=new Date().toLocaleDateString('pt-BR');
-const salvo=localStorage.getItem('ampm_cupom_v11');
-const dataSalva=localStorage.getItem('ampm_data_v11');
+// Mudei a chave para limpar qualquer cache antigo
+const salvo=localStorage.getItem('ampm_cupom_v_final');
+const dataSalva=localStorage.getItem('ampm_data_v_final');
 
+// Se já tem cupom hoje, mostra direto
 if(salvo&&dataSalva===hoje){mostrarVoucher(JSON.parse(salvo))}
 
 socket.on('trocar_slide',d=>{
+    // Se a tela de voucher não está visível e ainda não pediu, pede automático
     if(document.getElementById('telaVoucher').style.display==='none' && !jaPediu){
         jaPediu = true;
-        setTimeout(() => { socket.emit('resgatar_oferta', d.id); }, 1000);
+        // Pequeno delay para usuário ver a tela carregando
+        setTimeout(() => { socket.emit('resgatar_oferta', d.id); }, 800);
     }
 });
 socket.emit('pedir_atualizacao');
@@ -209,8 +213,8 @@ socket.emit('pedir_atualizacao');
 socket.on('sucesso',dados=>{
     const agora=new Date();
     dados.horaTexto=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR');
-    localStorage.setItem('ampm_cupom_v11',JSON.stringify(dados));
-    localStorage.setItem('ampm_data_v11',agora.toLocaleDateString('pt-BR'));
+    localStorage.setItem('ampm_cupom_v_final',JSON.stringify(dados));
+    localStorage.setItem('ampm_data_v_final',agora.toLocaleDateString('pt-BR'));
     mostrarVoucher(dados);
 });
 
@@ -272,7 +276,7 @@ io.on('connection', (socket) => {
             camp.qtd--;
             camp.totalResgates++;
             const agora = new Date();
-            agora.setHours(agora.getHours() - 3);
+            agora.setHours(agora.getHours() - 3); // Ajuste Fuso
             const horaAtual = agora.getHours();
             if(horaAtual >= 0 && horaAtual <= 23) camp.resgatesPorHora[horaAtual]++;
             
@@ -316,5 +320,3 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`AMPM rodando na porta ${PORT}`));
-
-
