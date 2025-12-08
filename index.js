@@ -20,7 +20,7 @@ let campanhas = [
         id: 0, 
         tipo: 'foto', 
         // ATENÇÃO: Ajustado para o nome que vi no seu print
-        arquivo: "slide1.jpg.png", 
+        arquivo: "slide1.jpg.png.jpg", 
         nome: "Sorteio 50% OFF", 
         qtd: 5, 
         ativa: true, 
@@ -316,4 +316,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`AMPM rodando na porta ${PORT}`));
+
 
