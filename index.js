@@ -15,28 +15,28 @@ let historicoVendas = [];
 
 // --- CONFIGURAÇÃO AMPM (POSTO IPIRANGA) ---
 let campanhas = [
-    // SLIDE 0: COMBUSTÍVEL (Sorteio Dourado)
+    // SLIDE 0: COMBUSTÍVEL (Sorteio 50%) - Usa slide1.jpg
     { 
         id: 0, 
         tipo: 'foto', 
-        arquivo: "slide1.jpg", // Foto da Gasolina
+        arquivo: "slide1.jpg", // No seu GitHub já está slide1.jpg (CERTO!)
         nome: "Sorteio 50% OFF", 
         qtd: 5, 
         ativa: true, 
         corPrincipal: '#FFD700', // Dourado
-        corSecundaria: '#003399', // Azul Ipiranga
+        corSecundaria: '#003399', // Azul
         prefixo: 'GOLD',
-        ehSorteio: true, // Ativa a roleta
+        ehSorteio: true, 
         totalResgates: 0,
         resgatesPorHora: new Array(24).fill(0),
         ultimoCupom: "Nenhum",
         ultimaHora: "--:--"
     },
-    // SLIDE 1: DUCHA (Garantido)
+    // SLIDE 1: DUCHA (Garantido) - Usa slide2.jpg
     { 
         id: 1, 
         tipo: 'foto', 
-        arquivo: "slide2.jpg", // Foto da Ducha
+        arquivo: "slide2.jpg", // No seu GitHub já está slide2.jpg (CERTO!)
         nome: "Ducha Grátis",   
         qtd: 50, 
         ativa: true, 
@@ -49,15 +49,15 @@ let campanhas = [
         ultimoCupom: "Nenhum",
         ultimaHora: "--:--"
     },
-    // SLIDE 2: CAFÉ (Garantido)
+    // SLIDE 2: CAFÉ (Garantido) - Usa slide3.jpg
     { 
         id: 2, 
         tipo: 'foto', 
-        arquivo: "slide3.jpg", // Foto do Café
+        arquivo: "slide3.jpg", // No seu GitHub já está slide3.jpg (CERTO!)
         nome: "Café Expresso Grátis",        
         qtd: 50, 
         ativa: true, 
-        corPrincipal: '#F37021', // Laranja AMPM
+        corPrincipal: '#F37021', // Laranja
         corSecundaria: '#663300', // Marrom
         prefixo: 'CAFE',
         ehSorteio: false,
@@ -70,7 +70,7 @@ let campanhas = [
 
 let slideAtual = 0;
 
-// Rotação (15s)
+// Rotação 15s
 setInterval(() => {
     slideAtual++;
     if (slideAtual >= campanhas.length) slideAtual = 0;
@@ -84,7 +84,7 @@ function gerarCodigo(prefixo) {
     return `${prefixo}-${result}`;
 }
 
-// ROTA DOWNLOAD EXCEL
+// Rota Download Excel
 app.get('/baixar-relatorio', (req, res) => {
     let csv = "\uFEFFDATA,HORA,PRODUTO,CODIGO,TIPO_PREMIO\n";
     historicoVendas.forEach(h => {
@@ -95,20 +95,17 @@ app.get('/baixar-relatorio', (req, res) => {
     res.send(csv);
 });
 
-// --- HTML DA TV (COM DETECTOR DE ERRO DE IMAGEM) ---
+// --- HTML DA TV ---
 const htmlTV = `
 <!DOCTYPE html><html><head><title>TV AMPM</title></head><body style="margin:0; background:black; overflow:hidden; font-family:Arial; display:flex; flex-direction:column; height:100vh;">
 <div style="display:flex; flex:1; width:100%; transition: background 0.5s;">
     <div style="flex:3; background:#333; display:flex; align-items:center; justify-content:center; overflow:hidden;" id="bgEsq">
-        
         <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;" 
              onerror="this.style.display='none'; document.getElementById('avisoErro').style.display='block';">
-        
         <div id="avisoErro" style="display:none; color:white; text-align:center;">
-            <h1>⚠️ Imagem não encontrada</h1>
-            <p>Verifique se o arquivo <b>slide1.jpg</b>, <b>slide2.jpg</b>... está na pasta public do GitHub.</p>
+            <h1>⚠️ Carregando...</h1>
+            <p>Se demorar, verifique o GitHub.</p>
         </div>
-
     </div>
     <div style="flex:1; background:#003399; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid #FFCC00; text-align:center; color:white;" id="bgDir">
         <img src="logo.png" onerror="this.style.display='none'" style="width:140px; background:white; padding:10px; border-radius:15px; margin-bottom:20px;">
@@ -164,7 +161,7 @@ function actualizarTela(d){
 }
 </script></body></html>`;
 
-// --- HTML MOBILE (AMPM - RESGATE AUTOMÁTICO) ---
+// --- HTML MOBILE (AMPM) ---
 const htmlMobile = `
 <!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;background:#f0f2f5;margin:0;transition:background 0.3s}.loader{border:5px solid #f3f3f3;border-top:5px solid #F37021;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:20px auto}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}.ticket-paper{background:#fff;padding:0;margin-top:20px;box-shadow:0 5px 15px rgba(0,0,0,0.1);border-top:10px solid #F37021}.ticket-body{padding:25px}.codigo-texto{font-size:32px;font-weight:bold;letter-spacing:2px;font-family:monospace;color:#333}.no-print{display:block}@media print{.no-print{display:none}body{background:white}.ticket-paper{box-shadow:none;border:1px solid #ccc}}</style><body>
 <div id="telaPegar" style="margin-top:50px;">
@@ -248,7 +245,7 @@ socket.on('dados_admin',(lista)=>{
         let max=0;let hora=0;
         c.resgatesPorHora.forEach((q,h)=>{if(q>max){max=q;hora=h}});
         const pico=max>0?hora+":00h ("+max+" un)":"Sem dados";
-        div.innerHTML+=\`<div style="background:#444; padding:15px; margin-bottom:15px; border-radius:10px; border-left: 8px solid \${c.ativa?'#0f0':'#f00'}"><h3>\${c.nome}</h3><div style="display:flex; gap:10px;"><label>Estoque:</label><input id="qtd_\${index}" type="number" value="\${c.qtd}" style="width:60px;"><button onclick="salvar(\${index})">Salvar</button></div><br><span>📈 Resgates: <b>\${c.totalResgates}</b></span><br><small>Pico: \${pico}</small></div>\`
+        div.innerHTML+=\`<div style="background:#444; padding:15px; margin-bottom:15px; border-radius:10px; border-left: 8px solid \${c.ativa?'#0f0':'#f00'}"><h3>\${c.nome}</h3><div style="display:flex; gap:10px;"><label>Estoque:</label><input id="qtd_\${index}" type="number" value="\${c.qtd}" style="width:60px;"><button onclick="salvar(\${index})">Salvar</button></div><br><span>📈 Já: <b>\${c.totalResgates}</b></span><br><small>Pico: \${pico}</small></div>\`
     })
 });
 function salvar(id){const q=document.getElementById('qtd_'+id).value;socket.emit('admin_update',{id:id,qtd:q});alert('Ok!')}
@@ -292,7 +289,7 @@ io.on('connection', (socket) => {
                 if (sorte > 95) { 
                     isGold = true; nomeFinal = "PARABÉNS! 50% OFF"; tipoPremio="OURO";
                 } else { 
-                    cor1 = '#cccccc'; cor2 = '#333'; nomeFinal = "Ganhou: 2% OFF"; tipoPremio="BRONZE";
+                    cor1 = '#cccccc'; cor2 = '#333'; nomeFinal = "Ganhou: 2% OFF"; prefixo = "DESC"; tipoPremio="BRONZE";
                 }
             }
 
