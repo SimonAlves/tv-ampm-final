@@ -10,22 +10,22 @@ const io = socketIo(server);
 app.use(express.static(__dirname));
 app.use(express.static('public'));
 
-// --- BANCO DE DADOS (HISTÓRICO) ---
+// --- BANCO DE DADOS ---
 let historicoVendas = []; 
 
-// --- CONFIGURAÇÃO AMPM (CORRIGIDA) ---
+// --- CONFIGURAÇÃO AMPM ---
+// Nota: Coloquei nomes simples aqui. O código lá embaixo se vira para achar o arquivo real.
 let campanhas = [
     // SLIDE 0: COMBUSTÍVEL
     { 
         id: 0, 
         tipo: 'foto', 
-        // CORRIGIDO: Removi o último .jpg extra
-        arquivo: "slide1.jpg.png", 
+        arquivo: "slide1.jpg", // Nome base (o sistema tenta variações se falhar)
         nome: "Sorteio 50% OFF", 
         qtd: 5, 
         ativa: true, 
-        corPrincipal: '#FFD700', 
-        corSecundaria: '#003399', 
+        corPrincipal: '#FFD700', // Dourado
+        corSecundaria: '#003399', // Azul
         prefixo: 'GOLD',
         ehSorteio: true, 
         totalResgates: 0,
@@ -37,12 +37,11 @@ let campanhas = [
     { 
         id: 1, 
         tipo: 'foto', 
-        // CORRIGIDO: Removi o último .jpg extra
-        arquivo: "slide2.jpg.png", 
+        arquivo: "slide2.jpg", 
         nome: "Ducha Grátis",   
         qtd: 50, 
         ativa: true, 
-        corPrincipal: '#0055aa', 
+        corPrincipal: '#0055aa', // Azul
         corSecundaria: '#0099ff', 
         prefixo: 'DUCHA',
         ehSorteio: false,
@@ -55,12 +54,11 @@ let campanhas = [
     { 
         id: 2, 
         tipo: 'foto', 
-        // Este já estava certo, por isso funcionava
-        arquivo: "slide3.jpg.jpg", 
+        arquivo: "slide3.jpg", 
         nome: "Café Expresso Grátis",        
         qtd: 50, 
         ativa: true, 
-        corPrincipal: '#F37021', 
+        corPrincipal: '#F37021', // Laranja
         corSecundaria: '#663300', 
         prefixo: 'CAFE',
         ehSorteio: false,
@@ -86,7 +84,6 @@ function gerarCodigo(prefixo) {
     return `${prefixo}-${result}`;
 }
 
-// Rota Download Excel
 app.get('/baixar-relatorio', (req, res) => {
     let csv = "\uFEFFDATA,HORA,PRODUTO,CODIGO,TIPO_PREMIO\n";
     historicoVendas.forEach(h => {
@@ -97,13 +94,14 @@ app.get('/baixar-relatorio', (req, res) => {
     res.send(csv);
 });
 
-// --- HTML DA TV ---
+// --- HTML DA TV (COM DETECTOR INTELIGENTE DE IMAGEM) ---
 const htmlTV = `
 <!DOCTYPE html><html><head><title>TV AMPM</title></head><body style="margin:0; background:black; overflow:hidden; font-family:Arial; display:flex; flex-direction:column; height:100vh;">
 <div style="display:flex; flex:1; width:100%; transition: background 0.5s;">
     <div style="flex:3; background:#333; display:flex; align-items:center; justify-content:center; overflow:hidden;" id="bgEsq">
-        <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;" 
-             onerror="this.style.display='none'; document.getElementById('avisoErro').style.display='block';">
+        
+        <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;" onerror="tentarOutraExtensao(this)">
+        
         <div id="avisoErro" style="display:none; color:white; text-align:center;">
             <h1>⚠️ Carregando...</h1>
         </div>
@@ -130,12 +128,35 @@ const htmlTV = `
 <script src="/socket.io/socket.io.js"></script><script>
 const socket=io();
 const imgTag=document.getElementById('imgDisplay');
-const aviso=document.getElementById('avisoErro');
+let tentativas = 0;
 
 socket.on('trocar_slide',d=>{actualizarTela(d)});
 socket.on('atualizar_qtd',d=>{if(document.getElementById('nomeProd').innerText===d.nome){document.getElementById('num').innerText=d.qtd}});
 
+// --- FUNÇÃO MÁGICA PARA CORRIGIR IMAGEM ---
+function tentarOutraExtensao(img) {
+    tentativas++;
+    let srcAtual = img.src;
+    
+    // Se tentou carregar .jpg e falhou, tenta .png
+    if (srcAtual.endsWith('.jpg') && tentativas === 1) {
+        img.src = srcAtual.replace('.jpg', '.png');
+    }
+    // Se .png falhou, tenta .jpg.png (seu erro comum)
+    else if (srcAtual.endsWith('.png') && tentativas === 2) {
+        img.src = srcAtual.replace('.png', '.jpg.png');
+    }
+    // Se tudo falhar
+    else {
+        img.style.display='none';
+        document.getElementById('avisoErro').style.display='block';
+    }
+}
+
 function actualizarTela(d){
+    tentativas = 0; // Reseta contador
+    document.getElementById('avisoErro').style.display='none';
+    
     document.getElementById('nomeProd').innerText=d.nome;
     document.getElementById('num').innerText=d.qtd;
     const corTexto = (d.corPrincipal === '#FFD700') ? '#003399' : 'white';
@@ -146,8 +167,7 @@ function actualizarTela(d){
     document.getElementById('txtScan').style.color = (d.corPrincipal === '#FFD700') ? '#003399' : '#FFCC00';
 
     imgTag.style.display='block';
-    aviso.style.display='none';
-    imgTag.src=d.arquivo;
+    imgTag.src=d.arquivo; // Tenta o original primeiro
 
     if(d.ehSorteio){
         document.getElementById('boxNum').style.display='none';
@@ -164,7 +184,7 @@ const htmlMobile = `
 <!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;background:#f0f2f5;margin:0;transition:background 0.3s}.loader{border:5px solid #f3f3f3;border-top:5px solid #F37021;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:20px auto}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}.ticket-paper{background:#fff;padding:0;margin-top:20px;box-shadow:0 5px 15px rgba(0,0,0,0.1);border-top:10px solid #F37021}.ticket-body{padding:25px}.codigo-texto{font-size:32px;font-weight:bold;letter-spacing:2px;font-family:monospace;color:#333}.no-print{display:block}@media print{.no-print{display:none}body{background:white}.ticket-paper{box-shadow:none;border:1px solid #ccc}}</style><body>
 <div id="telaPegar" style="margin-top:50px;">
     <img src="logo.png" width="150" style="margin-bottom:20px">
-    <h2 style="color:#333;">Processando...</h2>
+    <h2 style="color:#333;">Processando oferta...</h2>
     <div class="loader"></div>
 </div>
 <div id="telaVoucher" style="display:none">
@@ -177,7 +197,7 @@ const htmlMobile = `
             <div style="background:#f8f9fa;border:2px dashed #ccc;padding:15px;margin:20px 0">
                 <div class="codigo-texto" id="codGerado">...</div>
             </div>
-            <p style="font-size:12px;color:#555">Gerado em: <span id="dataHora" style="font-weight:bold"></span></p>
+            <p style="font-size:12px;color:#555">Gerado em: <span id="dataHora" style="font-weight:bold"></span><br>Válido hoje.</p>
         </div>
     </div>
     <button onclick="window.print()" class="btn-pegar no-print" style="background:#333;color:white;padding:15px;width:100%;border:none;border-radius:10px;margin-top:30px;font-size:18px">🖨️ IMPRIMIR</button>
@@ -252,7 +272,7 @@ app.get('/mobile', (req, res) => res.send(htmlMobile));
 app.get('/', (req, res) => res.redirect('/tv'));
 app.get('/qrcode', (req, res) => { const url = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/mobile`; QRCode.toDataURL(url, (e, s) => res.send(s)); });
 
-// --- LÓGICA SERVIDOR ---
+// --- LÓGICA ---
 io.on('connection', (socket) => {
     socket.emit('trocar_slide', campanhas[slideAtual]);
     socket.emit('dados_admin', campanhas);
@@ -271,12 +291,8 @@ io.on('connection', (socket) => {
             camp.ultimoCupom = gerarCodigo(camp.prefixo);
             camp.ultimaHora = agora.toLocaleTimeString('pt-BR');
 
-            // Sorteio
-            let isGold = false; 
-            let tipoPremio = "Normal";
-            let nomeFinal = camp.nome;
-            let cor1 = camp.corPrincipal;
-            let cor2 = camp.corSecundaria;
+            let isGold = false; let tipoPremio = "Normal"; let nomeFinal = camp.nome;
+            let cor1 = camp.corPrincipal; let cor2 = camp.corSecundaria;
 
             if (camp.ehSorteio) {
                 const sorte = Math.floor(Math.random() * 100) + 1;
@@ -287,17 +303,9 @@ io.on('connection', (socket) => {
                 }
             }
 
-            historicoVendas.push({
-                data: agora.toLocaleDateString('pt-BR'),
-                hora: camp.ultimaHora,
-                produto: nomeFinal,
-                codigo: camp.ultimoCupom,
-                tipo: tipoPremio
-            });
-
+            historicoVendas.push({ data: agora.toLocaleDateString('pt-BR'), hora: camp.ultimaHora, produto: nomeFinal, codigo: camp.ultimoCupom, tipo: tipoPremio });
             io.emit('atualizar_qtd', camp);
             if(slideAtual === id) io.emit('trocar_slide', camp);
-            
             socket.emit('sucesso', { codigo: camp.ultimoCupom, produto: nomeFinal, corPrincipal: cor1, isGold: isGold });
             io.emit('dados_admin', campanhas);
         }
