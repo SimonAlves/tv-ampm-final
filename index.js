@@ -13,19 +13,19 @@ app.use(express.static('public'));
 // --- BANCO DE DADOS (HISTÓRICO) ---
 let historicoVendas = []; 
 
-// --- CONFIGURAÇÃO AMPM (AJUSTADA PARA SEUS ARQUIVOS NO GITHUB) ---
+// --- CONFIGURAÇÃO AMPM (CORRIGIDA) ---
 let campanhas = [
-    // SLIDE 0: COMBUSTÍVEL (Sorteio)
+    // SLIDE 0: COMBUSTÍVEL
     { 
         id: 0, 
         tipo: 'foto', 
-        // ATENÇÃO: Ajustado para o nome que está no seu GitHub agora
+        // CORRIGIDO: Removi o último .jpg extra
         arquivo: "slide1.jpg.png", 
         nome: "Sorteio 50% OFF", 
         qtd: 5, 
         ativa: true, 
-        corPrincipal: '#FFD700', // Dourado
-        corSecundaria: '#003399', // Azul
+        corPrincipal: '#FFD700', 
+        corSecundaria: '#003399', 
         prefixo: 'GOLD',
         ehSorteio: true, 
         totalResgates: 0,
@@ -33,16 +33,16 @@ let campanhas = [
         ultimoCupom: "Nenhum",
         ultimaHora: "--:--"
     },
-    // SLIDE 1: DUCHA (Garantido)
+    // SLIDE 1: DUCHA
     { 
         id: 1, 
         tipo: 'foto', 
-        // ATENÇÃO: Ajustado para o nome que está no seu GitHub agora
+        // CORRIGIDO: Removi o último .jpg extra
         arquivo: "slide2.jpg.png", 
         nome: "Ducha Grátis",   
         qtd: 50, 
         ativa: true, 
-        corPrincipal: '#0055aa', // Azul
+        corPrincipal: '#0055aa', 
         corSecundaria: '#0099ff', 
         prefixo: 'DUCHA',
         ehSorteio: false,
@@ -51,16 +51,16 @@ let campanhas = [
         ultimoCupom: "Nenhum",
         ultimaHora: "--:--"
     },
-    // SLIDE 2: CAFÉ (Garantido)
+    // SLIDE 2: CAFÉ
     { 
         id: 2, 
         tipo: 'foto', 
-        // ATENÇÃO: Ajustado para o nome que está no seu GitHub agora
+        // Este já estava certo, por isso funcionava
         arquivo: "slide3.jpg.jpg", 
         nome: "Café Expresso Grátis",        
         qtd: 50, 
         ativa: true, 
-        corPrincipal: '#F37021', // Laranja
+        corPrincipal: '#F37021', 
         corSecundaria: '#663300', 
         prefixo: 'CAFE',
         ehSorteio: false,
@@ -73,7 +73,6 @@ let campanhas = [
 
 let slideAtual = 0;
 
-// Rotação Automática (15s)
 setInterval(() => {
     slideAtual++;
     if (slideAtual >= campanhas.length) slideAtual = 0;
@@ -87,7 +86,7 @@ function gerarCodigo(prefixo) {
     return `${prefixo}-${result}`;
 }
 
-// ROTA DOWNLOAD EXCEL
+// Rota Download Excel
 app.get('/baixar-relatorio', (req, res) => {
     let csv = "\uFEFFDATA,HORA,PRODUTO,CODIGO,TIPO_PREMIO\n";
     historicoVendas.forEach(h => {
@@ -106,8 +105,7 @@ const htmlTV = `
         <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;" 
              onerror="this.style.display='none'; document.getElementById('avisoErro').style.display='block';">
         <div id="avisoErro" style="display:none; color:white; text-align:center;">
-            <h1>⚠️ Carregando Imagem...</h1>
-            <p>Aguarde um momento.</p>
+            <h1>⚠️ Carregando...</h1>
         </div>
     </div>
     <div style="flex:1; background:#003399; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid #FFCC00; text-align:center; color:white;" id="bgDir">
@@ -140,8 +138,6 @@ socket.on('atualizar_qtd',d=>{if(document.getElementById('nomeProd').innerText==
 function actualizarTela(d){
     document.getElementById('nomeProd').innerText=d.nome;
     document.getElementById('num').innerText=d.qtd;
-    
-    // Cores e Estilos
     const corTexto = (d.corPrincipal === '#FFD700') ? '#003399' : 'white';
     document.getElementById('bgDir').style.background = d.corPrincipal;
     document.getElementById('bgEsq').style.background = d.corSecundaria;
@@ -149,7 +145,6 @@ function actualizarTela(d){
     document.getElementById('num').style.color = (d.corPrincipal === '#FFD700') ? '#003399' : '#FFCC00';
     document.getElementById('txtScan').style.color = (d.corPrincipal === '#FFD700') ? '#003399' : '#FFCC00';
 
-    // Imagem e Reset de Erro
     imgTag.style.display='block';
     aviso.style.display='none';
     imgTag.src=d.arquivo;
@@ -164,14 +159,13 @@ function actualizarTela(d){
 }
 </script></body></html>`;
 
-// --- HTML MOBILE (RESGATE AUTOMÁTICO) ---
+// --- HTML MOBILE ---
 const htmlMobile = `
 <!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;background:#f0f2f5;margin:0;transition:background 0.3s}.loader{border:5px solid #f3f3f3;border-top:5px solid #F37021;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:20px auto}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}.ticket-paper{background:#fff;padding:0;margin-top:20px;box-shadow:0 5px 15px rgba(0,0,0,0.1);border-top:10px solid #F37021}.ticket-body{padding:25px}.codigo-texto{font-size:32px;font-weight:bold;letter-spacing:2px;font-family:monospace;color:#333}.no-print{display:block}@media print{.no-print{display:none}body{background:white}.ticket-paper{box-shadow:none;border:1px solid #ccc}}</style><body>
 <div id="telaPegar" style="margin-top:50px;">
     <img src="logo.png" width="150" style="margin-bottom:20px">
-    <h2 style="color:#333;">Processando oferta...</h2>
+    <h2 style="color:#333;">Processando...</h2>
     <div class="loader"></div>
-    <p style="color:#666;">Verificando disponibilidade...</p>
 </div>
 <div id="telaVoucher" style="display:none">
     <h2 id="tituloParabens" class="no-print" style="color:#003399">SUCESSO! 🎉</h2>
@@ -183,29 +177,24 @@ const htmlMobile = `
             <div style="background:#f8f9fa;border:2px dashed #ccc;padding:15px;margin:20px 0">
                 <div class="codigo-texto" id="codGerado">...</div>
             </div>
-            <p style="font-size:12px;color:#555">Gerado em: <span id="dataHora" style="font-weight:bold"></span><br>Válido hoje.</p>
+            <p style="font-size:12px;color:#555">Gerado em: <span id="dataHora" style="font-weight:bold"></span></p>
         </div>
     </div>
     <button onclick="window.print()" class="btn-pegar no-print" style="background:#333;color:white;padding:15px;width:100%;border:none;border-radius:10px;margin-top:30px;font-size:18px">🖨️ IMPRIMIR</button>
-    <p class="no-print" style="font-size:12px;color:gray;margin-top:20px">⚠️ Você já garantiu seu cupom de hoje.</p>
 </div>
 <script src="/socket.io/socket.io.js"></script><script>
 const socket=io();
 let jaPediu=false;
 const hoje=new Date().toLocaleDateString('pt-BR');
-// Mudei a chave para limpar qualquer cache antigo
-const salvo=localStorage.getItem('ampm_cupom_v_final');
-const dataSalva=localStorage.getItem('ampm_data_v_final');
+const salvo=localStorage.getItem('ampm_cupom_v12');
+const dataSalva=localStorage.getItem('ampm_data_v12');
 
-// Se já tem cupom hoje, mostra direto
 if(salvo&&dataSalva===hoje){mostrarVoucher(JSON.parse(salvo))}
 
 socket.on('trocar_slide',d=>{
-    // Se a tela de voucher não está visível e ainda não pediu, pede automático
     if(document.getElementById('telaVoucher').style.display==='none' && !jaPediu){
         jaPediu = true;
-        // Pequeno delay para usuário ver a tela carregando
-        setTimeout(() => { socket.emit('resgatar_oferta', d.id); }, 800);
+        setTimeout(() => { socket.emit('resgatar_oferta', d.id); }, 1000);
     }
 });
 socket.emit('pedir_atualizacao');
@@ -213,8 +202,8 @@ socket.emit('pedir_atualizacao');
 socket.on('sucesso',dados=>{
     const agora=new Date();
     dados.horaTexto=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR');
-    localStorage.setItem('ampm_cupom_v_final',JSON.stringify(dados));
-    localStorage.setItem('ampm_data_v_final',agora.toLocaleDateString('pt-BR'));
+    localStorage.setItem('ampm_cupom_v12',JSON.stringify(dados));
+    localStorage.setItem('ampm_data_v12',agora.toLocaleDateString('pt-BR'));
     mostrarVoucher(dados);
 });
 
@@ -228,7 +217,6 @@ function mostrarVoucher(dados){
     if(dados.isGold){
         document.body.style.backgroundColor="#FFD700";
         document.getElementById('tituloParabens').innerText="🌟 SORTE GRANDE! 🌟";
-        document.getElementById('voucherNome').innerHTML="🌟 "+dados.produto+" 🌟";
     }
 }
 </script></body></html>`;
@@ -276,7 +264,7 @@ io.on('connection', (socket) => {
             camp.qtd--;
             camp.totalResgates++;
             const agora = new Date();
-            agora.setHours(agora.getHours() - 3); // Ajuste Fuso
+            agora.setHours(agora.getHours() - 3);
             const horaAtual = agora.getHours();
             if(horaAtual >= 0 && horaAtual <= 23) camp.resgatesPorHora[horaAtual]++;
             
@@ -299,7 +287,6 @@ io.on('connection', (socket) => {
                 }
             }
 
-            // Salva no Banco
             historicoVendas.push({
                 data: agora.toLocaleDateString('pt-BR'),
                 hora: camp.ultimaHora,
