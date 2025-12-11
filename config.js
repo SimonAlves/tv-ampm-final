@@ -6,7 +6,7 @@ module.exports = [
     { 
         id: 0, 
         tipo: 'foto', 
-        arquivo: "slide1.jpg.png", // Nome exato do arquivo no seu GitHub
+        arquivo: "slide1.jpg", // Nome exato do arquivo no seu GitHub
         nome: "Sorteio 50% OFF", 
         qtd: 5, 
         ativa: true, 
@@ -19,7 +19,7 @@ module.exports = [
     { 
         id: 1, 
         tipo: 'foto', 
-        arquivo: "slide2.jpg.png", // Nome exato do arquivo no seu GitHub
+        arquivo: "slide2.jpg", // Nome exato do arquivo no seu GitHub
         nome: "Ducha Grátis",   
         qtd: 50, 
         ativa: true, 
@@ -32,7 +32,7 @@ module.exports = [
     { 
         id: 2, 
         tipo: 'foto', 
-        arquivo: "slide3.jpg.jpg", // Nome exato do arquivo no seu GitHub
+        arquivo: "slide3.jpg", // Nome exato do arquivo no seu GitHub
         nome: "Café Expresso Grátis",        
         qtd: 50, 
         ativa: true, 
