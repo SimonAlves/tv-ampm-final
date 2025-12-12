@@ -3,9 +3,9 @@ const http = require('http');
 const socketIo = require('socket.io');
 const QRCode = require('qrcode');
 
-// --- IMPORTANDO SEUS ARQUIVOS DE CONFIGURAÇÃO ---
-const campanhas = require('./config'); // Puxa os dados do config.js
-const { htmlTV, htmlMobile, htmlAdmin } = require('./templates'); // Puxa o visual do templates.js
+// --- IMPORTANDO CONFIGURAÇÕES ---
+const campanhas = require('./config'); 
+const { htmlTV, htmlMobile, htmlAdmin } = require('./templates');
 
 const app = express();
 const server = http.createServer(app);
@@ -17,7 +17,7 @@ app.use(express.static('public'));
 let historicoVendas = []; 
 let slideAtual = 0;
 
-// Preparando os dados (Adicionando contadores automaticamente)
+// Inicializa contadores se não existirem
 campanhas.forEach(c => {
     if(!c.totalResgates) c.totalResgates = 0;
     if(!c.resgatesPorHora) c.resgatesPorHora = new Array(24).fill(0);
@@ -39,7 +39,20 @@ function gerarCodigo(prefixo) {
     return `${prefixo}-${result}`;
 }
 
-// Rotas
+// --- CORREÇÃO DO QR CODE AQUI ---
+// Agora envia uma IMAGEM (Stream), não um texto.
+app.get('/qrcode', (req, res) => { 
+    // Pega o endereço do site automaticamente
+    const url = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/mobile`; 
+    
+    // Avisa o navegador que isso é uma imagem PNG
+    res.type('png');
+    
+    // Cria a imagem e manda direto pra tela
+    QRCode.toFileStream(res, url); 
+});
+
+// Rota Download Excel
 app.get('/baixar-relatorio', (req, res) => {
     let csv = "\uFEFFDATA,HORA,PRODUTO,CODIGO,TIPO_PREMIO\n";
     historicoVendas.forEach(h => {
@@ -50,13 +63,13 @@ app.get('/baixar-relatorio', (req, res) => {
     res.send(csv);
 });
 
+// Rotas das Páginas
 app.get('/tv', (req, res) => res.send(htmlTV));
 app.get('/admin', (req, res) => res.send(htmlAdmin));
 app.get('/mobile', (req, res) => res.send(htmlMobile));
 app.get('/', (req, res) => res.redirect('/tv'));
-app.get('/qrcode', (req, res) => { const url = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/mobile`; QRCode.toDataURL(url, (e, s) => res.send(s)); });
 
-// Sistema
+// Sistema Socket.IO
 io.on('connection', (socket) => {
     socket.emit('trocar_slide', campanhas[slideAtual]);
     socket.emit('dados_admin', campanhas);
