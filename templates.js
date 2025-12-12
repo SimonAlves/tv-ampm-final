@@ -5,16 +5,14 @@ const htmlTV = `
 <div style="display:flex; flex:1; width:100%; transition: background 0.5s;">
     <div style="flex:3; background:#333; display:flex; align-items:center; justify-content:center; overflow:hidden;" id="bgEsq">
         <img id="imgDisplay" src="" style="width:100%; height:100%; object-fit:contain; display:none;" onerror="this.style.display='none'; document.getElementById('avisoErro').style.display='block';">
-        <div id="avisoErro" style="display:none; color:white; text-align:center;"><h1>⚠️ Carregando...</h1><p>Aguarde um momento.</p></div>
+        <div id="avisoErro" style="display:none; color:white; text-align:center;"><h1>⚠️ Carregando...</h1></div>
     </div>
     <div style="flex:1; background:#003399; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid #FFCC00; text-align:center; color:white;" id="bgDir">
         <img src="logo.png" onerror="this.style.display='none'" style="width:140px; background:white; padding:10px; border-radius:15px; margin-bottom:20px;">
         <h1 id="nomeProd" style="font-size:2.2rem; padding:0 10px; font-weight:800;">...</h1>
-        
         <div style="background:white; padding:10px; border-radius:10px; margin-top:10px;">
             <img id="qr" src="/qrcode" style="width:200px; display:block;">
         </div>
-        
         <p style="margin-top:15px; font-weight:bold; font-size:1.3rem; color:#FFCC00;" id="txtScan">APONTE A CÂMERA</p>
         <div id="boxNum" style="margin-top:20px; border-top:2px dashed rgba(255,255,255,0.3); width:80%; padding-top:20px;">
             <span style="font-size:1rem;">RESTAM APENAS:</span><br><span id="num" style="font-size:6rem; color:#FFCC00; font-weight:900; line-height:1;">--</span>
@@ -47,15 +45,58 @@ const htmlMobile = `
 <script src="/socket.io/socket.io.js"></script><script>
 const socket=io();let jaPediu=false;const hoje=new Date().toLocaleDateString('pt-BR');const salvo=localStorage.getItem('ampm_cupom_v_final');const dataSalva=localStorage.getItem('ampm_data_v_final');
 if(salvo&&dataSalva===hoje){mostrarVoucher(JSON.parse(salvo))}
-socket.on('trocar_slide',d=>{if(document.getElementById('telaVoucher').style.display==='none'&&!jaPediu){jaPediu=true;setTimeout(()=>{socket.emit('resgatar_oferta',d.id)},1000)}});
+socket.on('trocar_slide',d=>{if(document.getElementById('telaVoucher').style.display==='none'&&!jaPediu){jaPediu=true;setTimeout(()=>{socket.emit('resgatar_oferta',d.id)},800)}});
 socket.emit('pedir_atualizacao');
 socket.on('sucesso',dados=>{const agora=new Date();dados.horaTexto=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR');localStorage.setItem('ampm_cupom_v_final',JSON.stringify(dados));localStorage.setItem('ampm_data_v_final',agora.toLocaleDateString('pt-BR'));mostrarVoucher(dados)});
 function mostrarVoucher(dados){document.getElementById('telaPegar').style.display='none';document.getElementById('telaVoucher').style.display='block';document.getElementById('voucherNome').innerText=dados.produto;document.getElementById('codGerado').innerText=dados.codigo;document.getElementById('dataHora').innerText=dados.horaTexto;document.getElementById('ticketContainer').style.borderTopColor=dados.corPrincipal;if(dados.isGold){document.body.style.backgroundColor="#FFD700";document.getElementById('tituloParabens').innerText="🌟 SORTE GRANDE! 🌟";document.getElementById('voucherNome').innerHTML="🌟 "+dados.produto+" 🌟"}}
 </script></body></html>`;
 
-const htmlAdmin = `
-<!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><body style="font-family:Arial; padding:20px; background:#222; color:white;"><h1>🎛️ Painel AMPM</h1><div style="margin-bottom:20px;padding:15px;background:#333;border-radius:10px;border:1px solid #555;"><h3>📊 Relatório de Vendas</h3><a href="/baixar-relatorio" target="_blank"><button style="padding:10px 20px;background:#009933;color:white;border:none;font-weight:bold;cursor:pointer;">📥 BAIXAR EXCEL</button></a></div><div id="paineis"></div><script src="/socket.io/socket.io.js"></script><script>
-const socket=io();socket.on('dados_admin',(lista)=>{const div=document.getElementById('paineis');div.innerHTML="";lista.forEach((c,index)=>{let max=0;let hora=0;c.resgatesPorHora.forEach((q,h)=>{if(q>max){max=q;hora=h}});const pico=max>0?hora+":00h ("+max+" un)":"Sem dados";div.innerHTML+=\`<div style="background:#444;padding:15px;margin-bottom:15px;border-radius:10px;border-left:8px solid \${c.ativa?'#0f0':'#f00'}"><h3>\${c.nome}</h3><div style="display:flex;gap:10px;"><label>Estoque:</label><input id="qtd_\${index}" type="number" value="\${c.qtd}" style="width:60px;"><button onclick="salvar(\${index})">Salvar</button></div><br><span>📈 Já: <b>\${c.totalResgates}</b></span><br><small>Pico: \${pico}</small></div>\`})});function salvar(id){const q=document.getElementById('qtd_'+id).value;socket.emit('admin_update',{id:id,qtd:q});alert('Ok!')}
+// --- PAINEL DO CAIXA (NOVO - Só Validação) ---
+const htmlCaixa = `
+<!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><body style="font-family:Arial; padding:20px; background:#f4f4f4; text-align:center;">
+<div style="max-width:400px; margin:0 auto; background:white; padding:30px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.1);">
+    <img src="logo.png" style="width:120px; margin-bottom:20px;" onerror="this.style.display='none'">
+    <h1 style="color:#003399; margin-top:0;">🛂 Validador de Voucher</h1>
+    <p style="color:#666;">Digite o código apresentado pelo cliente:</p>
+    
+    <input type="text" id="inputCod" placeholder="Ex: DUCHA-X92" style="font-size:24px; padding:15px; width:100%; text-transform:uppercase; text-align:center; border:2px solid #ddd; border-radius:10px; box-sizing:border-box; margin-bottom:20px;">
+    
+    <button onclick="validar()" style="padding:15px; font-size:20px; background:#009933; color:white; border:none; border-radius:10px; cursor:pointer; width:100%; font-weight:bold;">VERIFICAR CÓDIGO</button>
+    
+    <div id="resultadoVal" style="margin-top:20px; padding:20px; border-radius:10px; font-weight:bold; display:none; font-size:18px;"></div>
+</div>
+<script src="/socket.io/socket.io.js"></script><script>
+const socket=io();
+socket.on('resultado_validacao', (res) => {
+    const div = document.getElementById('resultadoVal');
+    div.style.display = 'block';
+    div.innerHTML = res.msg.replace(/\\n/g, '<br>');
+    if(res.sucesso) {
+        div.style.background = '#d4edda'; div.style.color = '#155724'; div.style.border = '2px solid #c3e6cb';
+        document.getElementById('inputCod').value = '';
+    } else {
+        div.style.background = '#f8d7da'; div.style.color = '#721c24'; div.style.border = '2px solid #f5c6cb';
+    }
+});
+function validar() {
+    const cod = document.getElementById('inputCod').value;
+    if(cod) socket.emit('validar_cupom', cod);
+}
 </script></body></html>`;
 
-module.exports = { htmlTV, htmlMobile, htmlAdmin };
+// --- PAINEL DO GERENTE (ADMIN - Só Estoque e Relatório) ---
+const htmlAdmin = `
+<!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><body style="font-family:Arial; padding:20px; background:#222; color:white;">
+<h1>💼 Painel Gerencial AMPM</h1>
+<div style="margin-bottom: 20px; padding: 15px; background: #333; border-radius: 10px; border: 1px solid #555;">
+    <h3>📊 Relatório Completo</h3>
+    <p>Baixe a planilha para ver histórico e conferir caixas.</p>
+    <a href="/baixar-relatorio" target="_blank"><button style="padding:15px 30px; background:#009933; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer; font-size:16px;">📥 BAIXAR PLANILHA (EXCEL)</button></a>
+</div>
+<h3>📦 Controle de Estoque</h3>
+<div id="paineis"></div>
+<script src="/socket.io/socket.io.js"></script><script>
+const socket=io();socket.on('dados_admin',(lista)=>{const div=document.getElementById('paineis');div.innerHTML="";lista.forEach((c,index)=>{let max=0;let hora=0;c.resgatesPorHora.forEach((q,h)=>{if(q>max){max=q;hora=h}});const pico=max>0?hora+":00h ("+max+" un)":"Sem dados";div.innerHTML+=\`<div style="background:#444; padding:15px; margin-bottom:15px; border-radius:10px; border-left: 8px solid \${c.ativa?'#0f0':'#f00'}"><h3>\${c.nome}</h3><div style="display:flex; gap:10px;"><label>Estoque:</label><input id="qtd_\${index}" type="number" value="\${c.qtd}" style="width:60px;"><button onclick="salvar(\${index})">Salvar</button></div><br><span>📈 Já emitidos: <b>\${c.totalResgates}</b></span><br><small>Pico: \${pico}</small></div>\`})});function salvar(id){const q=document.getElementById('qtd_'+id).value;socket.emit('admin_update',{id:id,qtd:q});alert('Ok!')}
+</script></body></html>`;
+
+module.exports = { htmlTV, htmlMobile, htmlAdmin, htmlCaixa };
