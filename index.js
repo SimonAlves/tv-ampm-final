@@ -3,9 +3,9 @@ const http = require('http');
 const socketIo = require('socket.io');
 const QRCode = require('qrcode');
 
-// --- IMPORTANDO CONFIGURAÇÕES ---
 const campanhas = require('./config'); 
-const { htmlTV, htmlMobile, htmlAdmin } = require('./templates');
+// Importei o htmlCaixa aqui
+const { htmlTV, htmlMobile, htmlAdmin, htmlCaixa } = require('./templates'); 
 
 const app = express();
 const server = http.createServer(app);
@@ -17,15 +17,12 @@ app.use(express.static('public'));
 let historicoVendas = []; 
 let slideAtual = 0;
 
-// Inicializa contadores se não existirem
 campanhas.forEach(c => {
     if(!c.totalResgates) c.totalResgates = 0;
     if(!c.resgatesPorHora) c.resgatesPorHora = new Array(24).fill(0);
     if(!c.ultimoCupom) c.ultimoCupom = "Nenhum";
-    if(!c.ultimaHora) c.ultimaHora = "--:--";
 });
 
-// Rotação dos Slides
 setInterval(() => {
     slideAtual++;
     if (slideAtual >= campanhas.length) slideAtual = 0;
@@ -39,40 +36,60 @@ function gerarCodigo(prefixo) {
     return `${prefixo}-${result}`;
 }
 
-// --- CORREÇÃO DO QR CODE AQUI ---
-// Agora envia uma IMAGEM (Stream), não um texto.
-app.get('/qrcode', (req, res) => { 
-    // Pega o endereço do site automaticamente
-    const url = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/mobile`; 
-    
-    // Avisa o navegador que isso é uma imagem PNG
-    res.type('png');
-    
-    // Cria a imagem e manda direto pra tela
-    QRCode.toFileStream(res, url); 
-});
-
-// Rota Download Excel
+// RELATÓRIO COM STATUS (Se foi usado ou não)
 app.get('/baixar-relatorio', (req, res) => {
-    let csv = "\uFEFFDATA,HORA,PRODUTO,CODIGO,TIPO_PREMIO\n";
+    let csv = "\uFEFFDATA;HORA EMISSÃO;HORA USO;PRODUTO;CODIGO;STATUS\n";
     historicoVendas.forEach(h => {
-        csv += `${h.data},${h.hora},${h.produto},${h.codigo},${h.tipo}\n`;
+        const horaBaixa = h.horaBaixa ? h.horaBaixa : "-";
+        csv += `${h.data};${h.hora};${horaBaixa};${h.produto};${h.codigo};${h.status}\n`;
     });
     res.header('Content-Type', 'text/csv; charset=utf-8');
-    res.attachment('relatorio_ampm.csv');
+    res.attachment('relatorio_ampm_completo.csv');
     res.send(csv);
 });
 
-// Rotas das Páginas
+// --- ROTAS DO SISTEMA ---
 app.get('/tv', (req, res) => res.send(htmlTV));
-app.get('/admin', (req, res) => res.send(htmlAdmin));
 app.get('/mobile', (req, res) => res.send(htmlMobile));
-app.get('/', (req, res) => res.redirect('/tv'));
 
-// Sistema Socket.IO
+// Rota do Gerente (Estoque e Excel)
+app.get('/admin', (req, res) => res.send(htmlAdmin));
+
+// Rota do Caixa (Só Validação)
+app.get('/caixa', (req, res) => res.send(htmlCaixa));
+
+app.get('/', (req, res) => res.redirect('/tv'));
+app.get('/qrcode', (req, res) => { 
+    const url = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/mobile`; 
+    res.type('png');
+    QRCode.toFileStream(res, url); 
+});
+
 io.on('connection', (socket) => {
     socket.emit('trocar_slide', campanhas[slideAtual]);
     socket.emit('dados_admin', campanhas);
+    
+    // --- SISTEMA DE BAIXA DE CUPOM ---
+    socket.on('validar_cupom', (codDigitado) => {
+        const codigoLimpo = codDigitado.trim().toUpperCase();
+        // Procura o cupom no histórico
+        const cupom = historicoVendas.find(v => v.codigo === codigoLimpo);
+
+        if (!cupom) {
+            socket.emit('resultado_validacao', { sucesso: false, msg: "❌ CÓDIGO NÃO ENCONTRADO!" });
+        } else if (cupom.status === 'USADO') {
+            socket.emit('resultado_validacao', { sucesso: false, msg: `⚠️ ESTE CUPOM JÁ FOI USADO!\nBaixa em: ${cupom.horaBaixa}` });
+        } else {
+            // SUCESSO: Marca como usado
+            cupom.status = 'USADO';
+            const agora = new Date();
+            agora.setHours(agora.getHours() - 3);
+            cupom.horaBaixa = agora.toLocaleTimeString('pt-BR');
+            
+            socket.emit('resultado_validacao', { sucesso: true, msg: `✅ CUPOM VÁLIDO!\n\nProduto: ${cupom.produto}\nCliente liberado.` });
+        }
+    });
+
     socket.on('pedir_atualizacao', () => { socket.emit('trocar_slide', campanhas[slideAtual]); });
     
     socket.on('resgatar_oferta', (id) => {
@@ -104,9 +121,11 @@ io.on('connection', (socket) => {
             historicoVendas.push({
                 data: agora.toLocaleDateString('pt-BR'),
                 hora: horaStr,
+                horaBaixa: null, // Ainda não foi usado
                 produto: nomeFinal,
                 codigo: cod,
-                tipo: tipoPremio
+                tipo: tipoPremio,
+                status: 'PENDENTE' // Começa como pendente
             });
 
             io.emit('atualizar_qtd', camp);
@@ -115,7 +134,7 @@ io.on('connection', (socket) => {
             io.emit('dados_admin', campanhas);
         }
     });
-    socket.on('admin_update', (d) => { campanhas[d.id].qtd = parseInt(d.qtd); io.emit('dados_admin', campanhas); if(slideAtual === d.id) io.emit('trocar_slide', campanhas[d.id]); });
+    socket.on('admin_update', (d) => { campanhas[d.id].qtd = parseInt(d.qtd); io.emit('dados_admin', campanhas); });
 });
 
 const PORT = process.env.PORT || 3000;
