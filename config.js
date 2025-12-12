@@ -32,7 +32,7 @@ module.exports = [
     { 
         id: 2, 
         tipo: 'foto', 
-        arquivo: "slide3.jpg", // Nome exato do arquivo no seu GitHub
+        arquivo: "slide3.jpg.jpg", // Nome exato do arquivo no seu GitHub
         nome: "Café Expresso Grátis",        
         qtd: 50, 
         ativa: true, 
