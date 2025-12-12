@@ -10,9 +10,11 @@ const htmlTV = `
     <div style="flex:1; background:#003399; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:6px solid #FFCC00; text-align:center; color:white;" id="bgDir">
         <img src="logo.png" onerror="this.style.display='none'" style="width:140px; background:white; padding:10px; border-radius:15px; margin-bottom:20px;">
         <h1 id="nomeProd" style="font-size:2.2rem; padding:0 10px; font-weight:800;">...</h1>
+        
         <div style="background:white; padding:10px; border-radius:10px; margin-top:10px;">
             <img id="qr" src="/qrcode" style="width:200px; display:block;">
         </div>
+        
         <p style="margin-top:15px; font-weight:bold; font-size:1.3rem; color:#FFCC00;" id="txtScan">APONTE A CÂMERA</p>
         <div id="boxNum" style="margin-top:20px; border-top:2px dashed rgba(255,255,255,0.3); width:80%; padding-top:20px;">
             <span style="font-size:1rem;">RESTAM APENAS:</span><br><span id="num" style="font-size:6rem; color:#FFCC00; font-weight:900; line-height:1;">--</span>
@@ -43,11 +45,11 @@ const htmlMobile = `
 <div id="telaPegar" style="margin-top:50px;"><img src="logo.png" width="150" style="margin-bottom:20px"><h2 style="color:#333;">Processando oferta...</h2><div class="loader"></div><p style="color:#666;">Verificando disponibilidade...</p></div>
 <div id="telaVoucher" style="display:none"><h2 id="tituloParabens" class="no-print" style="color:#003399">SUCESSO! 🎉</h2><div class="ticket-paper" id="ticketContainer"><div class="ticket-body"><img src="logo.png" width="100" style="margin-bottom:15px" onerror="this.style.display='none'"><p style="font-size:14px;color:#666">VOUCHER AMPM</p><h1 id="voucherNome" style="font-size:24px;color:#333;margin:5px 0">...</h1><div style="background:#f8f9fa;border:2px dashed #ccc;padding:15px;margin:20px 0"><div class="codigo-texto" id="codGerado">...</div></div><p style="font-size:12px;color:#555">Gerado em: <span id="dataHora" style="font-weight:bold"></span><br>Válido hoje.</p></div></div><button onclick="window.print()" class="btn-pegar no-print" style="background:#333;color:white;padding:15px;width:100%;border:none;border-radius:10px;margin-top:30px;font-size:18px">🖨️ IMPRIMIR</button><p class="no-print" style="font-size:12px;color:gray;margin-top:20px">⚠️ Você já garantiu seu cupom de hoje.</p></div>
 <script src="/socket.io/socket.io.js"></script><script>
-const socket=io();let jaPediu=false;const hoje=new Date().toLocaleDateString('pt-BR');const salvo=localStorage.getItem('ampm_cupom_pro');const dataSalva=localStorage.getItem('ampm_data_pro');
+const socket=io();let jaPediu=false;const hoje=new Date().toLocaleDateString('pt-BR');const salvo=localStorage.getItem('ampm_cupom_v_final');const dataSalva=localStorage.getItem('ampm_data_v_final');
 if(salvo&&dataSalva===hoje){mostrarVoucher(JSON.parse(salvo))}
-socket.on('trocar_slide',d=>{if(document.getElementById('telaVoucher').style.display==='none'&&!jaPediu){jaPediu=true;setTimeout(()=>{socket.emit('resgatar_oferta',d.id)},800)}});
+socket.on('trocar_slide',d=>{if(document.getElementById('telaVoucher').style.display==='none'&&!jaPediu){jaPediu=true;setTimeout(()=>{socket.emit('resgatar_oferta',d.id)},1000)}});
 socket.emit('pedir_atualizacao');
-socket.on('sucesso',dados=>{const agora=new Date();dados.horaTexto=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR');localStorage.setItem('ampm_cupom_pro',JSON.stringify(dados));localStorage.setItem('ampm_data_pro',agora.toLocaleDateString('pt-BR'));mostrarVoucher(dados)});
+socket.on('sucesso',dados=>{const agora=new Date();dados.horaTexto=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR');localStorage.setItem('ampm_cupom_v_final',JSON.stringify(dados));localStorage.setItem('ampm_data_v_final',agora.toLocaleDateString('pt-BR'));mostrarVoucher(dados)});
 function mostrarVoucher(dados){document.getElementById('telaPegar').style.display='none';document.getElementById('telaVoucher').style.display='block';document.getElementById('voucherNome').innerText=dados.produto;document.getElementById('codGerado').innerText=dados.codigo;document.getElementById('dataHora').innerText=dados.horaTexto;document.getElementById('ticketContainer').style.borderTopColor=dados.corPrincipal;if(dados.isGold){document.body.style.backgroundColor="#FFD700";document.getElementById('tituloParabens').innerText="🌟 SORTE GRANDE! 🌟";document.getElementById('voucherNome').innerHTML="🌟 "+dados.produto+" 🌟"}}
 </script></body></html>`;
 
