@@ -8,7 +8,7 @@ module.exports = [
         tipo: 'foto', 
         arquivo: "slide1.jpg", // Nome exato do arquivo no seu GitHub
         nome: "Sorteio 50% OFF", 
-        qtd: 5, 
+        qtd: 2, 
         ativa: true, 
         corPrincipal: '#FFD700', // Dourado
         corSecundaria: '#003399', // Azul
@@ -21,7 +21,7 @@ module.exports = [
         tipo: 'foto', 
         arquivo: "slide2.jpg", // Nome exato do arquivo no seu GitHub
         nome: "Ducha Grátis",   
-        qtd: 50, 
+        qtd: 10, 
         ativa: true, 
         corPrincipal: '#0055aa', // Azul Escuro
         corSecundaria: '#0099ff', 
@@ -34,7 +34,7 @@ module.exports = [
         tipo: 'foto', 
         arquivo: "slide3.jpg.jpg", // Nome exato do arquivo no seu GitHub
         nome: "Café Expresso Grátis",        
-        qtd: 50, 
+        qtd: 10, 
         ativa: true, 
         corPrincipal: '#F37021', // Laranja
         corSecundaria: '#663300', 
