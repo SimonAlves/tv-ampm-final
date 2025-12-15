@@ -1,141 +1,78 @@
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const QRCode = require('qrcode');
+// ... (Mantenha htmlTV, htmlMobile e htmlCaixa iguais) ...
 
-const campanhas = require('./config'); 
-// Importei o htmlCaixa aqui
-const { htmlTV, htmlMobile, htmlAdmin, htmlCaixa } = require('./templates'); 
+// --- PAINEL DO GERENTE (ADMIN) ---
+const htmlAdmin = `
+<!DOCTYPE html><html><meta name="viewport" content="width=device-width, initial-scale=1"><body style="font-family:Arial; padding:20px; background:#222; color:white;">
+<h1>💼 Painel Gerencial AMPM</h1>
 
-const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
-
-app.use(express.static(__dirname));
-app.use(express.static('public'));
-
-let historicoVendas = []; 
-let slideAtual = 0;
-
-campanhas.forEach(c => {
-    if(!c.totalResgates) c.totalResgates = 0;
-    if(!c.resgatesPorHora) c.resgatesPorHora = new Array(24).fill(0);
-    if(!c.ultimoCupom) c.ultimoCupom = "Nenhum";
-});
-
-setInterval(() => {
-    slideAtual++;
-    if (slideAtual >= campanhas.length) slideAtual = 0;
-    io.emit('trocar_slide', campanhas[slideAtual]);
-}, 15000);
-
-function gerarCodigo(prefixo) {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let result = '';
-    for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-    return `${prefixo}-${result}`;
-}
-
-// RELATÓRIO COM STATUS (Se foi usado ou não)
-app.get('/baixar-relatorio', (req, res) => {
-    let csv = "\uFEFFDATA;HORA EMISSÃO;HORA USO;PRODUTO;CODIGO;STATUS\n";
-    historicoVendas.forEach(h => {
-        const horaBaixa = h.horaBaixa ? h.horaBaixa : "-";
-        csv += `${h.data};${h.hora};${horaBaixa};${h.produto};${h.codigo};${h.status}\n`;
-    });
-    res.header('Content-Type', 'text/csv; charset=utf-8');
-    res.attachment('relatorio_ampm_completo.csv');
-    res.send(csv);
-});
-
-// --- ROTAS DO SISTEMA ---
-app.get('/tv', (req, res) => res.send(htmlTV));
-app.get('/mobile', (req, res) => res.send(htmlMobile));
-
-// Rota do Gerente (Estoque e Excel)
-app.get('/admin', (req, res) => res.send(htmlAdmin));
-
-// Rota do Caixa (Só Validação)
-app.get('/caixa', (req, res) => res.send(htmlCaixa));
-
-app.get('/', (req, res) => res.redirect('/tv'));
-app.get('/qrcode', (req, res) => { 
-    const url = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/mobile`; 
-    res.type('png');
-    QRCode.toFileStream(res, url); 
-});
-
-io.on('connection', (socket) => {
-    socket.emit('trocar_slide', campanhas[slideAtual]);
-    socket.emit('dados_admin', campanhas);
+<div style="display:flex; gap:20px; flex-wrap:wrap;">
+    <div style="flex:1; min-width:300px; padding:15px; background:#333; border-radius:10px; border:1px solid #555;">
+        <h3>📊 Relatório Completo</h3>
+        <p>Baixe para ver todas as validações.</p>
+        <a href="/baixar-relatorio" target="_blank"><button style="padding:10px 20px; background:#009933; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">📥 BAIXAR EXCEL</button></a>
+    </div>
     
-    // --- SISTEMA DE BAIXA DE CUPOM ---
-    socket.on('validar_cupom', (codDigitado) => {
-        const codigoLimpo = codDigitado.trim().toUpperCase();
-        // Procura o cupom no histórico
-        const cupom = historicoVendas.find(v => v.codigo === codigoLimpo);
+    <div style="flex:1; min-width:300px;">
+        <h3>📦 Controle de Estoque</h3>
+        <div id="paineis"></div>
+    </div>
+</div>
 
-        if (!cupom) {
-            socket.emit('resultado_validacao', { sucesso: false, msg: "❌ CÓDIGO NÃO ENCONTRADO!" });
-        } else if (cupom.status === 'USADO') {
-            socket.emit('resultado_validacao', { sucesso: false, msg: `⚠️ ESTE CUPOM JÁ FOI USADO!\nBaixa em: ${cupom.horaBaixa}` });
-        } else {
-            // SUCESSO: Marca como usado
-            cupom.status = 'USADO';
-            const agora = new Date();
-            agora.setHours(agora.getHours() - 3);
-            cupom.horaBaixa = agora.toLocaleTimeString('pt-BR');
-            
-            socket.emit('resultado_validacao', { sucesso: true, msg: `✅ CUPOM VÁLIDO!\n\nProduto: ${cupom.produto}\nCliente liberado.` });
-        }
+<h3>🕒 Últimos Cupons (Tempo Real)</h3>
+<div style="overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; background:#444; color:white; border-radius:10px; overflow:hidden;">
+        <thead style="background:#003399;">
+            <tr>
+                <th style="padding:10px;">Hora Emissão</th>
+                <th style="padding:10px;">Cód</th>
+                <th style="padding:10px;">Produto</th>
+                <th style="padding:10px;">Status</th>
+                <th style="padding:10px;">Hora Uso</th>
+            </tr>
+        </thead>
+        <tbody id="tabelaHist"></tbody>
+    </table>
+</div>
+
+<script src="/socket.io/socket.io.js"></script><script>
+const socket=io();
+
+socket.on('dados_admin',(dados)=>{
+    // Atualiza Estoque
+    const div=document.getElementById('paineis');
+    div.innerHTML="";
+    dados.campanhas.forEach((c,index)=>{
+        div.innerHTML+=\`<div style="background:#444; padding:10px; margin-bottom:10px; border-radius:5px; border-left: 5px solid \${c.ativa?'#0f0':'#f00'}">
+            <strong>\${c.nome}</strong><br>
+            Estoque: <input id="qtd_\${index}" type="number" value="\${c.qtd}" style="width:50px;"> 
+            <button onclick="salvar(\${index})">💾</button> 
+            | Saíram: <b>\${c.totalResgates}</b>
+        </div>\`
     });
 
-    socket.on('pedir_atualizacao', () => { socket.emit('trocar_slide', campanhas[slideAtual]); });
-    
-    socket.on('resgatar_oferta', (id) => {
-        let camp = campanhas[id];
-        if (camp && camp.qtd > 0) {
-            camp.qtd--;
-            camp.totalResgates++;
-            const agora = new Date();
-            agora.setHours(agora.getHours() - 3);
-            const horaAtual = agora.getHours();
-            if(horaAtual >= 0 && horaAtual <= 23) camp.resgatesPorHora[horaAtual]++;
-            
-            let cod = gerarCodigo(camp.prefixo);
-            let horaStr = agora.toLocaleTimeString('pt-BR');
-            let isGold = false; 
-            let tipoPremio = "Normal";
-            let nomeFinal = camp.nome;
-            let cor1 = camp.corPrincipal;
-
-            if (camp.ehSorteio) {
-                const sorte = Math.floor(Math.random() * 100) + 1;
-                if (sorte > 95) { 
-                    isGold = true; nomeFinal = "PARABÉNS! 50% OFF"; tipoPremio="OURO";
-                } else { 
-                    cor1 = '#cccccc'; nomeFinal = "Ganhou: 2% OFF"; tipoPremio="BRONZE";
-                }
-            }
-
-            historicoVendas.push({
-                data: agora.toLocaleDateString('pt-BR'),
-                hora: horaStr,
-                horaBaixa: null, // Ainda não foi usado
-                produto: nomeFinal,
-                codigo: cod,
-                tipo: tipoPremio,
-                status: 'PENDENTE' // Começa como pendente
-            });
-
-            io.emit('atualizar_qtd', camp);
-            if(slideAtual === id) io.emit('trocar_slide', camp);
-            socket.emit('sucesso', { codigo: cod, produto: nomeFinal, corPrincipal: cor1, isGold: isGold });
-            io.emit('dados_admin', campanhas);
-        }
+    // Atualiza Tabela de Histórico
+    const tbody = document.getElementById('tabelaHist');
+    tbody.innerHTML = "";
+    dados.ultimos.forEach(u => {
+        let corStatus = u.status === 'USADO' ? '#d4edda' : '#fff3cd';
+        let corTexto = u.status === 'USADO' ? 'green' : '#856404';
+        let horaUso = u.horaBaixa ? u.horaBaixa : '-';
+        
+        tbody.innerHTML += \`
+            <tr style="border-bottom:1px solid #555;">
+                <td style="padding:8px; text-align:center;">\${u.hora}</td>
+                <td style="padding:8px; text-align:center; font-weight:bold;">\${u.codigo}</td>
+                <td style="padding:8px;">\${u.produto}</td>
+                <td style="padding:8px; text-align:center;"><span style="background:\${corStatus}; color:\${corTexto}; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:bold;">\${u.status}</span></td>
+                <td style="padding:8px; text-align:center;">\${horaUso}</td>
+            </tr>
+        \`;
     });
-    socket.on('admin_update', (d) => { campanhas[d.id].qtd = parseInt(d.qtd); io.emit('dados_admin', campanhas); });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`AMPM rodando na porta ${PORT}`));
+function salvar(id){const q=document.getElementById('qtd_'+id).value;socket.emit('admin_update',{id:id,qtd:q});}
+</script></body></html>`;
+
+// PRECISO EXPORTAR TODOS (O antigo htmlTV e htmlMobile + htmlAdmin novo + htmlCaixa novo)
+// Se você não copiou os outros códigos HTML nesta resposta, mantenha os que já tem no arquivo e apenas substitua o htmlAdmin.
+module.exports = { htmlTV, htmlMobile, htmlAdmin, htmlCaixa };
