@@ -3,8 +3,8 @@ const http = require('http');
 const socketIo = require('socket.io');
 const QRCode = require('qrcode');
 
-// IMPORTAÇÕES
 const campanhas = require('./config'); 
+// Importei o htmlCaixa aqui
 const { htmlTV, htmlMobile, htmlAdmin, htmlCaixa } = require('./templates'); 
 
 const app = express();
@@ -36,11 +36,7 @@ function gerarCodigo(prefixo) {
     return `${prefixo}-${result}`;
 }
 
-function atualizarAdmin() {
-    const ultimos = historicoVendas.slice().reverse().slice(0, 20);
-    io.emit('dados_admin', { campanhas, ultimos });
-}
-
+// RELATÓRIO COM STATUS (Se foi usado ou não)
 app.get('/baixar-relatorio', (req, res) => {
     let csv = "\uFEFFDATA;HORA EMISSÃO;HORA USO;PRODUTO;CODIGO;STATUS\n";
     historicoVendas.forEach(h => {
@@ -52,13 +48,17 @@ app.get('/baixar-relatorio', (req, res) => {
     res.send(csv);
 });
 
-// ROTAS
+// --- ROTAS DO SISTEMA ---
 app.get('/tv', (req, res) => res.send(htmlTV));
 app.get('/mobile', (req, res) => res.send(htmlMobile));
-app.get('/admin', (req, res) => res.send(htmlAdmin));
-app.get('/caixa', (req, res) => res.send(htmlCaixa));
-app.get('/', (req, res) => res.redirect('/tv'));
 
+// Rota do Gerente (Estoque e Excel)
+app.get('/admin', (req, res) => res.send(htmlAdmin));
+
+// Rota do Caixa (Só Validação)
+app.get('/caixa', (req, res) => res.send(htmlCaixa));
+
+app.get('/', (req, res) => res.redirect('/tv'));
 app.get('/qrcode', (req, res) => { 
     const url = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/mobile`; 
     res.type('png');
@@ -67,23 +67,26 @@ app.get('/qrcode', (req, res) => {
 
 io.on('connection', (socket) => {
     socket.emit('trocar_slide', campanhas[slideAtual]);
-    atualizarAdmin(); 
+    socket.emit('dados_admin', campanhas);
     
+    // --- SISTEMA DE BAIXA DE CUPOM ---
     socket.on('validar_cupom', (codDigitado) => {
         const codigoLimpo = codDigitado.trim().toUpperCase();
+        // Procura o cupom no histórico
         const cupom = historicoVendas.find(v => v.codigo === codigoLimpo);
 
         if (!cupom) {
             socket.emit('resultado_validacao', { sucesso: false, msg: "❌ CÓDIGO NÃO ENCONTRADO!" });
         } else if (cupom.status === 'USADO') {
-            socket.emit('resultado_validacao', { sucesso: false, msg: `⚠️ ERRO: JÁ FOI USADO!\nValidado às: ${cupom.horaBaixa}` });
+            socket.emit('resultado_validacao', { sucesso: false, msg: `⚠️ ESTE CUPOM JÁ FOI USADO!\nBaixa em: ${cupom.horaBaixa}` });
         } else {
+            // SUCESSO: Marca como usado
             cupom.status = 'USADO';
             const agora = new Date();
             agora.setHours(agora.getHours() - 3);
             cupom.horaBaixa = agora.toLocaleTimeString('pt-BR');
-            socket.emit('resultado_validacao', { sucesso: true, msg: `✅ VÁLIDO!\nProduto: ${cupom.produto}` });
-            atualizarAdmin(); 
+            
+            socket.emit('resultado_validacao', { sucesso: true, msg: `✅ CUPOM VÁLIDO!\n\nProduto: ${cupom.produto}\nCliente liberado.` });
         }
     });
 
@@ -118,20 +121,20 @@ io.on('connection', (socket) => {
             historicoVendas.push({
                 data: agora.toLocaleDateString('pt-BR'),
                 hora: horaStr,
-                horaBaixa: null,
+                horaBaixa: null, // Ainda não foi usado
                 produto: nomeFinal,
                 codigo: cod,
                 tipo: tipoPremio,
-                status: 'PENDENTE'
+                status: 'PENDENTE' // Começa como pendente
             });
 
             io.emit('atualizar_qtd', camp);
             if(slideAtual === id) io.emit('trocar_slide', camp);
             socket.emit('sucesso', { codigo: cod, produto: nomeFinal, corPrincipal: cor1, isGold: isGold });
-            atualizarAdmin(); 
+            io.emit('dados_admin', campanhas);
         }
     });
-    socket.on('admin_update', (d) => { campanhas[d.id].qtd = parseInt(d.qtd); atualizarAdmin(); if(slideAtual === d.id) io.emit('trocar_slide', campanhas[d.id]); });
+    socket.on('admin_update', (d) => { campanhas[d.id].qtd = parseInt(d.qtd); io.emit('dados_admin', campanhas); });
 });
 
 const PORT = process.env.PORT || 3000;
